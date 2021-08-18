@@ -1,0 +1,24 @@
+name:                typing-game
+version:             0.1.0.0
+#synopsis:
+#description:
+homepage:            https://github.com/githubuser/typing-game#readme
+license:             BSD3
+author:              Author name here
+maintainer:          example@example.com
+copyright:           2021 Author name here
+category:            Web
+extra-source-files:
+- README.md
+
+dependencies:
+  - base >= 4.7 && < 5
+  - lens
+  - ghcid
+  - mtl
+  - transformers
+
+executables:
+  typing-game:
+    source-dirs:      src
+    main:             Main.hs
