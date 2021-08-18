@@ -7,15 +7,8 @@ import Control.Lens
 import Control.Monad.Reader
 import Control.Applicative
 import Data.List
+import App
 
-newtype App a = App {runApp :: ReaderT Ghci IO a}
-  deriving newtype (Functor, Applicative, Monad, Alternative, MonadReader Ghci, MonadIO)
-
-printIO :: Show s => s -> App ()
-printIO = liftIO . print
-
-execApp :: Ghci -> App a -> IO a
-execApp ghci (App app) = runReaderT app ghci
 
 data Input = Skip | Quit | Blank | Guess String 
   deriving (Show,Eq)
@@ -26,11 +19,7 @@ data Term = Term {
   termType :: String
   }
 
-t :: App ()
-t = do
-  liftIO $ print "app"
-
-parseInput ::String -> Input
+parseInput :: String -> Input
 parseInput "" = Blank
 parseInput "-s" = Skip
 parseInput "-q" = Quit
