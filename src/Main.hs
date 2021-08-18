@@ -31,14 +31,15 @@ checkGuess g = do
   pure $ _name `isPrefixOf` concat res
 
 getContextString :: GameState -> String
-getContextString GameState {_guessScore, _term = Term {_context}} = do
-  if _guessScore <= 7
-    then _context ++ " => "
+getContextString gameState = do
+  if gameState ^. guessScore <= 7
+    then gameState ^. term . context ++ " => "
     else ""
 
 printPrompt :: App ()
 printPrompt = do
   gameState <- get
+  putStrLnIO $ "Current score: " ++ show (getTotalScore gameState)
   putStrIO $ gameState ^. term . name ++ " :: " ++ getContextString gameState
 
 mainLoop :: App ()
