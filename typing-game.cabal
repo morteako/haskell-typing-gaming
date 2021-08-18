@@ -20,6 +20,8 @@ extra-source-files:
 executable typing-game
   main-is: Main.hs
   other-modules:
+      App
+      Term
       Paths_typing_game
   hs-source-dirs:
       src

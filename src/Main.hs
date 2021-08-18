@@ -1,23 +1,18 @@
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE NamedFieldPuns #-}
+
 module Main where
 
-import Language.Haskell.Ghcid
+import App
+import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
-import Control.Applicative
+import Control.Monad.State
 import Data.List
-import App
+import Language.Haskell.Ghcid
+import Term
 
-
-data Input = Skip | Quit | Blank | Guess String 
-  deriving (Show,Eq)
-
-data Term = Term {
-  name :: String,
-  context :: String,
-  termType :: String
-  }
+data Input = Skip | Quit | Blank | Guess String
+  deriving (Show, Eq)
 
 parseInput :: String -> Input
 parseInput "" = Blank
@@ -26,41 +21,51 @@ parseInput "-q" = Quit
 parseInput g = Guess g
 
 getRandomTerm :: IO Term
-getRandomTerm = return $ Term {name = "lens", context = "Show a", termType = "a"}
+getRandomTerm = return $ Term {_name = "1", _context = "Num p", _termType = "p"}
 
-checkGuess :: String -> String -> App Bool
-checkGuess name g = do
-  res <- execute (":t " ++ name ++ " :: " ++ g)
-  printIO res
-  pure $ name `isPrefixOf` concat res 
+checkGuess :: String -> App Bool
+checkGuess g = do
+  Term {_name} <- use term
+  res <- execute (":t " ++ _name ++ " :: " ++ g)
+  putStrLnIO $ concat res
+  pure $ _name `isPrefixOf` concat res
 
-  
+getContextString :: GameState -> String
+getContextString GameState {_guessScore, _term = Term {_context}} = do
+  if _guessScore <= 7
+    then _context ++ " => "
+    else ""
 
-execute :: String -> App [String]
-execute s = do
-  ghci <- ask
-  liftIO $ exec ghci s
+printPrompt :: App ()
+printPrompt = do
+  gameState <- get
+  putStrIO $ gameState ^. term . name ++ " :: " ++ getContextString gameState
 
 mainLoop :: App ()
 mainLoop = do
-  printIO "INPUT :"
+  get >>= printIO
+  printPrompt
   inp <- parseInput <$> liftIO getLine
-  printIO inp
   case inp of
     Skip -> mainLoop
     Quit -> guard False
     Blank -> mainLoop
-    Guess g -> checkGuess "reverse " g >>= printIO >> mainLoop
-  
+    Guess g -> do
+      res <- checkGuess g
+      case res of
+        True -> do
+          putStrLnIO "Correct!"
+          modify newState
+          mainLoop
+        False -> do
+          modify decGuessScore
+          mainLoop
 
 main :: IO ()
 main = do
-  --mainLoop
   (ghci, _) <- startGhci "ghci" (Just ".") (\q s -> print q >> print s)
   -- executeStatement ":browse Data.List" >>= mapM print
   -- stopGhci ghci
-  execApp ghci t
-
-  execApp ghci mainLoop
+  t <- getRandomTerm
+  execApp t ghci mainLoop
   stopGhci ghci
-
