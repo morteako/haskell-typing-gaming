@@ -23,10 +23,10 @@ putStrIO = liftIO . putStr
 putStrLnIO :: String -> App ()
 putStrLnIO = liftIO . putStrLn
 
-execApp :: Term -> Ghci -> App a -> IO GameState
-execApp t ghci (App app) = runReaderT (execStateT app gameState) ghci
+execApp :: [Term] -> Ghci -> App a -> IO GameState
+execApp terms ghci (App app) = runReaderT (execStateT app gameState) ghci
   where
-    gameState = GameState {_scores = [], _term = t, _guessScore = 10}
+    gameState = GameState {_scores = [], _term = head terms, _allTerms = terms, _guessScore = 10}
 
 execute :: String -> App [String]
 execute s = do

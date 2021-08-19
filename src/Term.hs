@@ -17,6 +17,7 @@ makeLenses ''Term
 
 data GameState = GameState
   { _scores :: [Natural],
+    _allTerms :: [Term],
     _term :: Term,
     _guessScore :: Natural
   }
@@ -30,9 +31,9 @@ totalScore = scores . to sum
 getTotalScore :: GameState -> Natural
 getTotalScore = foldOf (scores . to sum)
 
-newState :: GameState -> GameState
-newState GameState {_scores, _term, _guessScore} =
-  GameState {_scores = _guessScore : _scores, _term, _guessScore = 10}
+newState :: Term -> GameState -> GameState
+newState newTerm GameState {_scores, _allTerms, _guessScore} =
+  GameState {_scores = _guessScore : _scores, _term = newTerm, _allTerms, _guessScore = 10}
 
 decGuessScore :: GameState -> GameState
 decGuessScore = over guessScore pred

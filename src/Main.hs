@@ -8,7 +8,9 @@ import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.List
+import Data.List.Split
 import Language.Haskell.Ghcid
+import System.Random (randomRIO)
 import Term
 
 data Input = Skip | Quit | Blank | Guess String
@@ -20,8 +22,11 @@ parseInput "-s" = Skip
 parseInput "-q" = Quit
 parseInput g = Guess g
 
-getRandomTerm :: IO Term
-getRandomTerm = return $ Term {_name = "1", _context = "Num p", _termType = "p"}
+getRandomTerm :: App Term
+getRandomTerm = do
+  terms <- use allTerms
+  i <- randomRIO (0, length terms - 1)
+  return $ terms !! i
 
 checkGuess :: String -> App Bool
 checkGuess g = do
@@ -44,11 +49,13 @@ printPrompt = do
 
 mainLoop :: App ()
 mainLoop = do
-  get >>= printIO
   printPrompt
   inp <- parseInput <$> liftIO getLine
   case inp of
-    Skip -> mainLoop
+    Skip -> do
+      term <- getRandomTerm
+      modify (newState term)
+      mainLoop
     Quit -> guard False
     Blank -> mainLoop
     Guess g -> do
@@ -56,17 +63,28 @@ mainLoop = do
       case res of
         True -> do
           putStrLnIO "Correct!"
-          modify newState
+          term <- getRandomTerm
+          modify (newState term)
           mainLoop
         False -> do
           modify decGuessScore
           mainLoop
 
+-- fix fully qualified aka remove
+parseBrowse :: [String] -> [Term]
+parseBrowse = map f . filter (not . isPrefixOf " ")
+  where
+    f s = let termName : _ = splitOn " ::" s in Term {_name = termName, _context = "", _termType = ""}
+
 main :: IO ()
 main = do
   (ghci, _) <- startGhci "ghci" (Just ".") (\q s -> print q >> print s)
-  -- executeStatement ":browse Data.List" >>= mapM print
+  -- exec ghci ":browse Data.List" >>= mapM print
+  exec ghci "import Data.List"
+  ls <- exec ghci ":browse Data.List"
+  let terms = parseBrowse ls
+  -- mapM print terms
   -- stopGhci ghci
-  t <- getRandomTerm
-  execApp t ghci mainLoop
+  -- t <- getRandomTerm
+  execApp terms ghci mainLoop
   stopGhci ghci

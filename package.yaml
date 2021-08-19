@@ -17,6 +17,8 @@ dependencies:
   - ghcid
   - mtl
   - transformers
+  - random
+  - split
 
 executables:
   typing-game:
