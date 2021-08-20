@@ -30,5 +30,7 @@ execApp term terms ghci (App app) = runReaderT (execStateT app gameState) ghci
 
 execute :: String -> App [String]
 execute s = do
+  putStrIO "DEBUG : "
+  putStrLnIO s
   ghci <- ask
   liftIO $ exec ghci s

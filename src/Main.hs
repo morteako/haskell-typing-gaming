@@ -35,28 +35,32 @@ getRandomTerm terms = do
 
 parens s = "(" ++ s ++ ")"
 
+term *:: type' = term ++ " :: " ++ type'
+
 checkGuess :: String -> App TypeCheckResult
 checkGuess g = do
   Term {_name, _termType} <- use term
-  let p = parens $ _name ++ " :: " ++ g
-  res <- execute (":t " ++ p)
-  let q = _name `isPrefixOf` concat res
-  res <- execute (":t " ++ parens p ++ " :: " ++ _termType)
-  let qq = _name `isPrefixOf` concat res
+  let guessInput = ":t " ++ parens (_name *:: g)
+  let isValidGuess ghciAnswer = ("(" ++ _name) `isPrefixOf` concat ghciAnswer
+  mostGeneralGuess <- isValidGuess <$> execute (guessInput *:: _termType)
+  specializedGuess <- isValidGuess <$> execute guessInput
+  pure $ toTypeCheckResult mostGeneralGuess specializedGuess
   where
-    f False _ = Incorrect
+    toTypeCheckResult True _ = MostGeneral
+    toTypeCheckResult False True = Specialized
+    toTypeCheckResult False False = Incorrect
 
-getContextString :: GameState -> String
-getContextString gameState = do
-  if gameState ^. guessScore <= 7
-    then gameState ^. term . context ++ " => "
-    else ""
+-- getContextString :: GameState -> String
+-- getContextString gameState = do
+--   if gameState ^. guessScore <= 7
+--     then gameState ^. term . context ++ " => "
+--     else ""
 
 printPrompt :: App ()
 printPrompt = do
   gameState <- get
   putStrLnIO $ "Current score: " ++ show (getTotalScore gameState)
-  putStrIO $ gameState ^. term . name ++ " :: " ++ getContextString gameState
+  putStrIO $ gameState ^. term . name ++ " :: "
 
 mainLoop :: App ()
 mainLoop = do
@@ -73,17 +77,25 @@ mainLoop = do
     Blank -> mainLoop
     Guess g -> do
       res <- checkGuess g
-      case res of
-        True -> do
-          putStrLnIO "Correct!"
-          terms <- use allTerms
-          term <- liftIO $ getRandomTerm terms
-          modify (newState term)
-          mainLoop
-        False -> do
-          putStrLnIO "Incorrect!"
-          modify decGuessScore
-          mainLoop
+      printIO res
+      actionTypeCheckResult res
+  where
+    actionTypeCheckResult MostGeneral = do
+      putStrLnIO "Completely correct!"
+      terms <- use allTerms
+      term <- liftIO $ getRandomTerm terms
+      modify (newState term)
+      mainLoop
+    actionTypeCheckResult Specialized = do
+      putStrLnIO "Completely correct!"
+      terms <- use allTerms
+      term <- liftIO $ getRandomTerm terms
+      modify (newState term)
+      mainLoop
+    actionTypeCheckResult Incorrect = do
+      putStrLnIO "Incorrect!"
+      modify decGuessScore
+      mainLoop
 
 parseType :: String -> Maybe Term
 parseType str =
