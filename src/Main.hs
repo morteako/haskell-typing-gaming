@@ -24,11 +24,12 @@ data TypeCheckResult = Incorrect | Specialized | MostGeneral
 
 parseInput :: String -> Input
 parseInput "" = Blank
-parseInput "-s" = Skip
-parseInput "-q" = Quit
+parseInput "-skip" = Skip
+parseInput "-quit" = Quit
 parseInput g = Guess g
 
-getRandomTerm :: [Term] -> IO Term
+--change to set and remove after use
+getRandomTerm :: MonadIO m => [Term] -> m Term
 getRandomTerm terms = do
   i <- randomRIO (0, length terms - 1)
   return $ terms !! i
@@ -38,6 +39,8 @@ parens s = "(" ++ s ++ ")"
 term *:: type' = term ++ " :: " ++ type'
 
 checkGuess :: String -> App TypeCheckResult
+checkGuess "-g" = pure MostGeneral
+checkGuess "-s" = pure Specialized
 checkGuess g = do
   Term {_name, _termType} <- use term
   let guessInput = ":t " ++ parens (_name *:: g)
@@ -47,8 +50,8 @@ checkGuess g = do
   pure $ toTypeCheckResult mostGeneralGuess specializedGuess
   where
     toTypeCheckResult True _ = MostGeneral
-    toTypeCheckResult False True = Specialized
-    toTypeCheckResult False False = Incorrect
+    toTypeCheckResult _ True = Specialized
+    toTypeCheckResult _ False = Incorrect
 
 -- getContextString :: GameState -> String
 -- getContextString gameState = do
@@ -81,15 +84,15 @@ mainLoop = do
       actionTypeCheckResult res
   where
     actionTypeCheckResult MostGeneral = do
-      putStrLnIO "Completely correct!"
-      terms <- use allTerms
-      term <- liftIO $ getRandomTerm terms
+      s <- use guessScore
+      putStrLnIO $ "Completely correct! +" ++ show s
+      term <- use allTerms >>= getRandomTerm
       modify (newState term)
       mainLoop
     actionTypeCheckResult Specialized = do
-      putStrLnIO "Completely correct!"
-      terms <- use allTerms
-      term <- liftIO $ getRandomTerm terms
+      s <- use partiallyGuessScore
+      putStrLnIO $ "Partially correct, ie not the most general type! +" ++ show s
+      term <- use allTerms >>= getRandomTerm
       modify (newState term)
       mainLoop
     actionTypeCheckResult Incorrect = do

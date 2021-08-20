@@ -4,6 +4,7 @@
 module Term where
 
 import Control.Lens
+import Data.Maybe
 import GHC.Natural
 
 data Term = Term
@@ -15,11 +16,18 @@ data Term = Term
 
 makeLenses ''Term
 
+data GuessScore = Unguessed {_getGuessScore :: Natural} | Partially {_getGuessScore :: Natural} deriving (Show, Eq)
+
+toScore (Unguessed s) = s + 5
+toScore (Partially s) = s
+
+makeLenses ''GuessScore
+
 data GameState = GameState
   { _scores :: [Natural],
     _allTerms :: [Term],
     _term :: Term,
-    _guessScore :: Natural
+    _guessScore :: GuessScore
   }
   deriving (Show, Eq)
 
@@ -31,9 +39,26 @@ totalScore = scores . to sum
 getTotalScore :: GameState -> Natural
 getTotalScore = foldOf (scores . to sum)
 
-newState :: Term -> GameState -> GameState
-newState newTerm GameState {_scores, _allTerms, _guessScore} =
-  GameState {_scores = _guessScore : _scores, _term = newTerm, _allTerms, _guessScore = 10}
+data StateChange = NewTerm Term | GuessedPartially deriving (Show, Eq)
 
-decGuessScore :: GameState -> GameState
-decGuessScore = over guessScore pred
+newState :: StateChange -> GameState -> GameState
+newState stateChange gameState@GameState {_scores, _term, _allTerms, _guessScore} =
+  case stateChange of
+    NewTerm newTerm ->
+      gameState
+        { _scores = toScore _guessScore : _scores,
+          _term = newTerm,
+          _guessScore = Unguessed 5
+        }
+    GuessedPartially ->
+      gameState
+        { _scores = toScore _guessScore : _scores,
+          _guessScore = Partially $ _getGuessScore _guessScore
+        }
+
+predNatural :: Natural -> Maybe Natural
+predNatural 1 = Nothing
+predNatural x = Just $ pred x
+
+decGuessScore :: GameState -> Maybe GameState
+decGuessScore = traverseOf (guessScore . getGuessScore) predNatural
