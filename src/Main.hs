@@ -9,12 +9,12 @@ import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.List (isPrefixOf)
-import Data.List.Split
 import Data.Maybe (isJust, mapMaybe)
 import GHC.IO (unsafePerformIO)
 import GHC.IO.Handle
 import GHC.IO.Handle.FD (stdin, stdout)
 import Language.Haskell.Ghcid
+import Parse (parseBrowse)
 import System.Random (randomRIO)
 import System.Random.Shuffle (shuffleM)
 import Term
@@ -122,7 +122,6 @@ update UpdateSkipOrNoMoreGuesses = do
 update SpecializedGuess = do
   mayGuess <- preuse (guessScore . _partialGuess)
   let f partialGuess = do
-        s <- get
         guessScore .= partialGuess
         scores %= cons (toScore partialGuess)
   betterGuess <- isJust <$> traverse f mayGuess
