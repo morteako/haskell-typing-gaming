@@ -1,7 +1,4 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE PolyKinds #-}
 
 module Main where
 
@@ -32,14 +29,16 @@ parseInput "-skip" = Skip
 parseInput "-quit" = Quit
 parseInput g = Guess g
 
---shuffle list
+--todo:shuffle list instead
 getRandomTerm :: MonadIO m => [Term] -> m Term
 getRandomTerm terms = do
   i <- randomRIO (0, length terms - 1)
   return $ terms !! i
 
+parens :: String -> String
 parens s = "(" ++ s ++ ")"
 
+(*::) :: String -> String -> String
 term *:: type' = term ++ " :: " ++ type'
 
 checkGuess :: String -> App TypeCheckResult
@@ -153,13 +152,10 @@ main :: IO ()
 main = do
   hSetBuffering stdin LineBuffering
   hSetBuffering stdout NoBuffering
-  (ghci, _) <- startGhci "ghci" (Just ".") (\q s -> print q >> print s)
-  -- exec ghci ":browse Data.List" >>= mapM print
+  (ghci, _) <- startGhci "ghci" (Just ".") (\_ s -> print s)
   exec ghci "import Data.List"
   ls <- exec ghci ":browse Data.List"
   let terms = parseBrowse ls
-  -- mapM print terms
-  -- stopGhci ghci
   t <- getRandomTerm terms
   execApp t terms ghci mainLoop
   stopGhci ghci
