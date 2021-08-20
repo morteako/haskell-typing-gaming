@@ -105,7 +105,7 @@ mainLoop = do
 
 data UpdateReason = DecreaseScore | UpdateSkipOrNoMoreGuesses | SpecializedGuess | MostGenGuess
 
-update :: UpdateReason -> App Bool
+update :: GhciWithState m => UpdateReason -> m Bool
 update DecreaseScore = do
   ns <- use (to decGuessScore)
   case ns of
