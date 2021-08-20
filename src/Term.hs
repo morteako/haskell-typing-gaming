@@ -60,5 +60,5 @@ predNatural :: Natural -> Maybe Natural
 predNatural 1 = Nothing
 predNatural x = Just $ pred x
 
-decGuessScore :: GameState -> Maybe GameState
-decGuessScore = traverseOf (guessScore . getGuessScore) predNatural
+decGuessScore :: GameState -> GameState
+decGuessScore = over (guessScore . getGuessScore) predNatural

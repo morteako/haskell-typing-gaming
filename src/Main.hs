@@ -97,8 +97,15 @@ mainLoop = do
       mainLoop
     actionTypeCheckResult Incorrect = do
       putStrLnIO "Incorrect!"
-      modify decGuessScore
+      modifyMaybe decGuessScore
       mainLoop
+
+modifyMaybe :: MonadState s m => (s -> Maybe s) -> m ()
+modifyMaybe f = do
+  a <- get
+  case f a of
+    Nothing -> pure ()
+    Just b -> put b
 
 parseType :: String -> Maybe Term
 parseType str =
