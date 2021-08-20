@@ -22,6 +22,13 @@ toScore (Unguessed s) = s + 5
 toScore (Partially s) = s
 
 makeLenses ''GuessScore
+makePrisms ''GuessScore
+
+_partialGuess :: Prism' GuessScore GuessScore
+_partialGuess = prism' id f
+  where
+    f (Unguessed s) = Just (Partially s)
+    f _ = Nothing
 
 data GameState = GameState
   { _scores :: [Natural],
@@ -32,6 +39,9 @@ data GameState = GameState
   deriving (Show, Eq)
 
 makeLenses ''GameState
+
+currentGuessScore :: Getting Natural GameState Natural
+currentGuessScore = guessScore . to toScore
 
 totalScore :: Getting Natural GameState Natural
 totalScore = scores . to sum
@@ -60,5 +70,5 @@ predNatural :: Natural -> Maybe Natural
 predNatural 1 = Nothing
 predNatural x = Just $ pred x
 
-decGuessScore :: GameState -> GameState
-decGuessScore = over (guessScore . getGuessScore) predNatural
+decGuessScore :: GameState -> Maybe GameState
+decGuessScore = traverseOf (guessScore . getGuessScore) predNatural

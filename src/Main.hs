@@ -1,4 +1,7 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE PolyKinds #-}
 
 module Main where
 
@@ -12,6 +15,7 @@ import Data.List.Split
 import Data.Maybe
 import GHC.IO.Handle
 import GHC.IO.Handle.FD (stdin, stdout)
+import GHC.Natural
 import Language.Haskell.Ghcid
 import System.Random (randomRIO)
 import Term
@@ -28,7 +32,7 @@ parseInput "-skip" = Skip
 parseInput "-quit" = Quit
 parseInput g = Guess g
 
---change to set and remove after use
+--shuffle list
 getRandomTerm :: MonadIO m => [Term] -> m Term
 getRandomTerm terms = do
   i <- randomRIO (0, length terms - 1)
@@ -62,7 +66,7 @@ checkGuess g = do
 printPrompt :: App ()
 printPrompt = do
   gameState <- get
-  putStrLnIO $ "Current score: " ++ show (getTotalScore gameState)
+  putStrLnIO $ "score: " ++ show (getTotalScore gameState) ++ ". Guess score : " ++ gameState ^. (guessScore . to toScore . to show)
   putStrIO $ gameState ^. term . name ++ " :: "
 
 mainLoop :: App ()
@@ -87,18 +91,41 @@ mainLoop = do
       s <- use guessScore
       putStrLnIO $ "Completely correct! +" ++ show s
       term <- use allTerms >>= getRandomTerm
-      modify (newState term)
+      modify $ newState (NewTerm term)
       mainLoop
     actionTypeCheckResult Specialized = do
-      s <- use partiallyGuessScore
+      s <- use currentGuessScore
       putStrLnIO $ "Partially correct, ie not the most general type! +" ++ show s
       term <- use allTerms >>= getRandomTerm
-      modify (newState term)
+      -- modify (newState term)
       mainLoop
     actionTypeCheckResult Incorrect = do
       putStrLnIO "Incorrect!"
       modifyMaybe decGuessScore
       mainLoop
+
+data UpdateReason = DecreaseScore | UpdateSkipOrNoMoreGuesses | SpecializedGuess | MostGenGuess
+
+update :: UpdateReason -> App Bool
+update DecreaseScore = do
+  ns <- use (to decGuessScore)
+  case ns of
+    Just newState' -> put newState' >> pure True
+    Nothing -> update UpdateSkipOrNoMoreGuesses
+update UpdateSkipOrNoMoreGuesses = do
+  newTerm <- use allTerms >>= getRandomTerm --remove and remove IO
+  term .= newTerm
+  guessScore .= Unguessed 5
+  pure True
+update SpecializedGuess = do
+  mayGuess <- preuse (guessScore . _partialGuess)
+  isJust <$> traverse (guessScore .=) mayGuess
+update MostGenGuess = do
+  oldGuessScore <- guessScore <.= Unguessed 5
+  scores %= cons (toScore oldGuessScore)
+  newTerm <- use allTerms >>= getRandomTerm
+  term .= newTerm
+  pure True
 
 modifyMaybe :: MonadState s m => (s -> Maybe s) -> m ()
 modifyMaybe f = do
