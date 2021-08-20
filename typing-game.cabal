@@ -31,6 +31,7 @@ executable typing-game
     , lens
     , mtl
     , random
+    , random-shuffle
     , split
     , transformers
   default-language: Haskell2010

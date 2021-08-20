@@ -39,7 +39,7 @@ putStrIO = liftIO . putStr
 putStrLnIO :: String -> App ()
 putStrLnIO = liftIO . putStrLn
 
-execApp :: Term -> [Term] -> Ghci -> App a -> IO GameState
-execApp term terms ghci (App app) = runReaderT (execStateT app gameState) ghci
+execApp :: [Term] -> Ghci -> App a -> IO GameState
+execApp terms ghci (App app) = runReaderT (execStateT app gameState) ghci
   where
-    gameState = GameState {_scores = [], _term = term, _allTerms = terms, _guessScore = Unguessed 5}
+    gameState = GameState {_scores = [], _term = head terms, _allTerms = tail terms, _guessScore = Unguessed 5}

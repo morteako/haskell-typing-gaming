@@ -49,15 +49,16 @@ totalScore = scores . to sum
 getTotalScore :: GameState -> Natural
 getTotalScore = foldOf (scores . to sum)
 
-data StateChange = NewTerm Term | GuessedPartially deriving (Show, Eq)
+data StateChange = NewTerm | GuessedPartially deriving (Show, Eq)
 
 newState :: StateChange -> GameState -> GameState
 newState stateChange gameState@GameState {_scores, _term, _allTerms, _guessScore} =
   case stateChange of
-    NewTerm newTerm ->
+    NewTerm ->
       gameState
         { _scores = toScore _guessScore : _scores,
-          _term = newTerm,
+          _term = head _allTerms,
+          _allTerms = tail _allTerms,
           _guessScore = Unguessed 5
         }
     GuessedPartially ->

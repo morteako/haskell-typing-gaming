@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Main where
@@ -7,7 +8,7 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State
-import Data.List
+import Data.List (isPrefixOf)
 import Data.List.Split
 import Data.Maybe
 import GHC.IO.Handle
@@ -15,6 +16,7 @@ import GHC.IO.Handle.FD (stdin, stdout)
 import GHC.Natural
 import Language.Haskell.Ghcid
 import System.Random (randomRIO)
+import System.Random.Shuffle
 import Term
 
 data Input = Skip | Quit | Blank | Guess String
@@ -90,7 +92,7 @@ mainLoop = do
       s <- use guessScore
       putStrLnIO $ "Completely correct! +" ++ show s
       term <- use allTerms >>= getRandomTerm
-      modify $ newState (NewTerm term)
+      modify $ newState NewTerm
       mainLoop
     actionTypeCheckResult Specialized = do
       s <- use currentGuessScore
@@ -103,28 +105,33 @@ mainLoop = do
       modifyMaybe decGuessScore
       mainLoop
 
-data UpdateReason = DecreaseScore | UpdateSkipOrNoMoreGuesses | SpecializedGuess | MostGenGuess
+data UpdateReason a where
+  DecreaseScore :: UpdateReason ()
+  UpdateSkipOrNoMoreGuesses :: UpdateReason ()
+  SpecializedGuess :: UpdateReason Bool
+  MostGenGuess :: UpdateReason ()
 
-update :: GhciWithState m => UpdateReason -> m Bool
+update :: GhciWithState m => UpdateReason a -> m a
 update DecreaseScore = do
   ns <- use (to decGuessScore)
   case ns of
-    Just newState' -> put newState' >> pure True
+    Just newState' -> put newState'
     Nothing -> update UpdateSkipOrNoMoreGuesses
 update UpdateSkipOrNoMoreGuesses = do
-  newTerm <- use allTerms >>= getRandomTerm --remove and remove IO
+  newTerm <- use (allTerms . to head)
   term .= newTerm
+  allTerms %= tail
   guessScore .= Unguessed 5
-  pure True
 update SpecializedGuess = do
   mayGuess <- preuse (guessScore . _partialGuess)
   isJust <$> traverse (guessScore .=) mayGuess
 update MostGenGuess = do
   oldGuessScore <- guessScore <.= Unguessed 5
   scores %= cons (toScore oldGuessScore)
-  newTerm <- use allTerms >>= getRandomTerm
+  newTerm <- use (allTerms . to head)
   term .= newTerm
-  pure True
+  allTerms %= tail
+  guessScore .= Unguessed 5
 
 modifyMaybe :: MonadState s m => (s -> Maybe s) -> m ()
 modifyMaybe f = do
@@ -155,7 +162,6 @@ main = do
   (ghci, _) <- startGhci "ghci" (Just ".") (\_ s -> print s)
   exec ghci "import Data.List"
   ls <- exec ghci ":browse Data.List"
-  let terms = parseBrowse ls
-  t <- getRandomTerm terms
-  execApp t terms ghci mainLoop
+  terms <- shuffleM $ parseBrowse ls
+  execApp terms ghci mainLoop
   stopGhci ghci
