@@ -21,6 +21,7 @@ executable typing-game
   main-is: Main.hs
   other-modules:
       App
+      Parse
       Term
       Paths_typing_game
   hs-source-dirs:

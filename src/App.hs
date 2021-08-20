@@ -7,7 +7,6 @@
 module App where
 
 import Control.Applicative (Alternative)
-import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State
   ( MonadState,
@@ -20,7 +19,7 @@ import Term
 newtype App a = App {runApp :: StateT GameState (ReaderT Ghci IO) a}
   deriving newtype (Functor, Applicative, Monad, Alternative, MonadReader Ghci, MonadIO, MonadState GameState)
 
-class MonadState GameState m => GhciWithState m where
+class (MonadState GameState m) => GhciWithState m where
   execute :: String -> m [String]
 
 instance GhciWithState App where

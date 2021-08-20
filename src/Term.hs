@@ -4,8 +4,7 @@
 module Term where
 
 import Control.Lens
-import Data.Maybe
-import GHC.Natural
+import GHC.Natural (Natural)
 
 data Term = Term
   { _name :: String,

@@ -1,22 +1,22 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Main where
 
 import App
-import Control.Applicative
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.List (isPrefixOf)
 import Data.List.Split
-import Data.Maybe
+import Data.Maybe (isJust, mapMaybe)
+import GHC.IO (unsafePerformIO)
 import GHC.IO.Handle
 import GHC.IO.Handle.FD (stdin, stdout)
-import GHC.Natural
 import Language.Haskell.Ghcid
 import System.Random (randomRIO)
-import System.Random.Shuffle
+import System.Random.Shuffle (shuffleM)
 import Term
 
 data Input = Skip | Quit | Blank | Guess String
@@ -29,6 +29,7 @@ parseInput :: String -> Input
 parseInput "" = Blank
 parseInput "-skip" = Skip
 parseInput "-quit" = Quit
+parseInput "-q" = Quit
 parseInput g = Guess g
 
 --todo:shuffle list instead
@@ -67,7 +68,7 @@ checkGuess g = do
 printPrompt :: App ()
 printPrompt = do
   gameState <- get
-  putStrLnIO $ "score: " ++ show (getTotalScore gameState) ++ ". Guess score : " ++ gameState ^. (guessScore . to toScore . to show)
+  putStrLnIO $ "Score: " ++ show (getTotalScore gameState) ++ ". Guesses left : " ++ gameState ^. (guessScore . getGuessScore . to show)
   putStrIO $ gameState ^. term . name ++ " :: "
 
 mainLoop :: App ()
@@ -76,33 +77,29 @@ mainLoop = do
   inp <- parseInput <$> liftIO getLine
   case inp of
     Skip -> do
-      putStrLnIO "Skipped"
-      terms <- use allTerms
-      newTerm <- liftIO $ getRandomTerm terms
-      term .= newTerm
+      update UpdateSkipOrNoMoreGuesses
       mainLoop
     Quit -> guard False
     Blank -> mainLoop
     Guess g -> do
       res <- checkGuess g
-      printIO res
       actionTypeCheckResult res
   where
     actionTypeCheckResult MostGeneral = do
-      s <- use guessScore
+      s <- use currentGuessScore
       putStrLnIO $ "Completely correct! +" ++ show s
-      term <- use allTerms >>= getRandomTerm
-      modify $ newState NewTerm
+      update MostGenGuess
       mainLoop
     actionTypeCheckResult Specialized = do
+      betterGuess <- update SpecializedGuess
       s <- use currentGuessScore
-      putStrLnIO $ "Partially correct, ie not the most general type! +" ++ show s
-      term <- use allTerms >>= getRandomTerm
-      -- modify (newState term)
+      if betterGuess
+        then putStrLnIO $ "Partially correct, but not the most general type! +" ++ show s
+        else putStrLnIO $ "Still not the most general type!"
       mainLoop
     actionTypeCheckResult Incorrect = do
       putStrLnIO "Incorrect!"
-      modifyMaybe decGuessScore
+      update DecreaseScore
       mainLoop
 
 data UpdateReason a where
@@ -116,22 +113,35 @@ update DecreaseScore = do
   ns <- use (to decGuessScore)
   case ns of
     Just newState' -> put newState'
-    Nothing -> update UpdateSkipOrNoMoreGuesses
+    Nothing -> do
+      resetTerm
+      void resetGuessScore
 update UpdateSkipOrNoMoreGuesses = do
-  newTerm <- use (allTerms . to head)
-  term .= newTerm
-  allTerms %= tail
-  guessScore .= Unguessed 5
+  resetTerm
+  void resetGuessScore
 update SpecializedGuess = do
   mayGuess <- preuse (guessScore . _partialGuess)
-  isJust <$> traverse (guessScore .=) mayGuess
+  let f partialGuess = do
+        s <- get
+        guessScore .= partialGuess
+        scores %= cons (toScore partialGuess)
+  betterGuess <- isJust <$> traverse f mayGuess
+  update DecreaseScore
+  pure betterGuess
 update MostGenGuess = do
-  oldGuessScore <- guessScore <.= Unguessed 5
+  oldGuessScore <- resetGuessScore
   scores %= cons (toScore oldGuessScore)
+  resetTerm
+  void resetGuessScore
+
+resetTerm :: MonadState GameState m => m ()
+resetTerm = do
   newTerm <- use (allTerms . to head)
   term .= newTerm
   allTerms %= tail
-  guessScore .= Unguessed 5
+
+resetGuessScore :: MonadState GameState m => m GuessScore
+resetGuessScore = guessScore <<.= Unguessed 5
 
 modifyMaybe :: MonadState s m => (s -> Maybe s) -> m ()
 modifyMaybe f = do
@@ -139,21 +149,6 @@ modifyMaybe f = do
   case f a of
     Nothing -> pure ()
     Just b -> put b
-
-parseType :: String -> Maybe Term
-parseType str =
-  case splitOn " ::" str of
-    termName : typeStr : _ -> Just $ Term {_name = termName, _context = "", _termType = typeStr}
-    _ -> Nothing
-
--- fix fully qualified aka remove
-parseBrowse :: [String] -> [Term]
-parseBrowse = mapMaybe parseType . filter isNormalTerm
-  where
-    isNormalTerm x = all ($ x) [notNewline, notTypeAlias, notTypeClass]
-    notNewline = not . isPrefixOf " "
-    notTypeAlias = not . isPrefixOf "type "
-    notTypeClass = not . isPrefixOf "class "
 
 main :: IO ()
 main = do
