@@ -7,7 +7,6 @@ module Main where
 import App
 import Control.Lens
 import Control.Monad.Except
-import Control.Monad.Reader
 import Control.Monad.State
 import Data.List (isPrefixOf)
 import Data.Maybe (isJust, mapMaybe)
@@ -39,11 +38,10 @@ parens s = "(" ++ s ++ ")"
 (*::) :: String -> String -> String
 term *:: type' = term ++ " :: " ++ type'
 
-checkGuess :: String -> App TypeCheckResult
-checkGuess "-g" = pure MostGeneral
-checkGuess "-s" = pure Specialized
-checkGuess g = do
-  Term {_name, _termType} <- use term
+checkGuess :: GhciSession m => Term -> String -> m TypeCheckResult
+checkGuess _ "-g" = pure MostGeneral
+checkGuess _ "-s" = pure Specialized
+checkGuess Term {_name, _termType} g = do
   let guessInput = ":t " ++ parens (_name *:: g)
   let isValidGuess ghciAnswer = ("(" ++ _name) `isPrefixOf` concat ghciAnswer
   mostGeneralGuess <- isValidGuess <$> execute (guessInput *:: _termType)
@@ -54,32 +52,27 @@ checkGuess g = do
     toTypeCheckResult _ True = Specialized
     toTypeCheckResult _ False = Incorrect
 
--- getContextString :: GameState -> String
--- getContextString gameState = do
---   if gameState ^. guessScore <= 7
---     then gameState ^. term . context ++ " => "
---     else ""
-
-printPrompt :: App ()
-printPrompt = do
-  gameState <- get
-  printIO (gameState ^. allTerms)
+--fix prints
+printPrompt :: InputOutput m => GameState -> m ()
+printPrompt gameState = do
+  printStr (gameState ^. allTerms)
   let scorePromp = "Score: " ++ show (getTotalScore gameState)
-  let guessPrompt = ". Guesses left : " ++ gameState ^. (guessScore . getGuessScore . to show)
-  let termsLeftPrompt = ". Terms left : " ++ show (gameState ^. allTerms . to length + 1)
-  putStrLnIO $ scorePromp ++ guessPrompt ++ termsLeftPrompt
-  putStrIO $ gameState ^. term . name ++ " :: "
+  let guessPrompt = ". Guesses left : " ++ gameState ^. guessScore . getGuessScore . to show
+  let termsLeftPrompt = ". Terms left : " ++ gameState ^. allTerms . to length . to succ . to show
+  printStrLn $ scorePromp ++ guessPrompt ++ termsLeftPrompt
+  printStr $ gameState ^. term . name ++ " :: "
 
 mainLoopCatch :: App ()
 mainLoopCatch = do
-  catchError mainLoop $ \e -> do
+  catchError mainLoop $ \_ -> do
     printIO "DONE"
     gameState <- get
     printIO $ gameState ^. totalScore
 
 mainLoop :: App ()
 mainLoop = do
-  printPrompt
+  gameState <- get
+  printPrompt gameState
   inp <- parseInput <$> liftIO getLine
   case inp of
     Skip -> do
@@ -88,7 +81,8 @@ mainLoop = do
     Quit -> guard False
     Blank -> mainLoop
     Guess g -> do
-      res <- checkGuess g
+      t <- use term
+      res <- checkGuess t g
       actionTypeCheckResult res
   where
     actionTypeCheckResult MostGeneral = do
@@ -114,7 +108,7 @@ data UpdateReason a where
   SpecializedGuess :: UpdateReason Bool
   MostGenGuess :: UpdateReason ()
 
-update :: GhciWithState m => UpdateReason a -> m a
+update :: (MonadState GameState m, MonadError String m) => UpdateReason a -> m a
 update DecreaseScore = do
   ns <- use (to decGuessScore)
   case ns of
@@ -139,7 +133,7 @@ update MostGenGuess = do
   resetTerm
   void resetGuessScore
 
-resetTerm :: GhciWithState m => m ()
+resetTerm :: (MonadState GameState m, MonadError String m) => m ()
 resetTerm = do
   newTerm <- preuse (allTerms . _head)
   case newTerm of
@@ -150,13 +144,6 @@ resetTerm = do
 
 resetGuessScore :: MonadState GameState m => m GuessScore
 resetGuessScore = guessScore <<.= Unguessed 5
-
-modifyMaybe :: MonadState s m => (s -> Maybe s) -> m ()
-modifyMaybe f = do
-  a <- get
-  case f a of
-    Nothing -> pure ()
-    Just b -> put b
 
 main :: IO ()
 main = do
