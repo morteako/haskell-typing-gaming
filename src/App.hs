@@ -7,6 +7,7 @@
 module App where
 
 import Control.Applicative (Alternative)
+import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
   ( MonadState,
@@ -16,10 +17,10 @@ import Control.Monad.State
 import Language.Haskell.Ghcid (Ghci, exec)
 import Term
 
-newtype App a = App {runApp :: StateT GameState (ReaderT Ghci IO) a}
-  deriving newtype (Functor, Applicative, Monad, Alternative, MonadReader Ghci, MonadIO, MonadState GameState)
+newtype App a = App {runApp :: ExceptT String (StateT GameState (ReaderT Ghci IO)) a}
+  deriving newtype (Functor, Applicative, Monad, Alternative, MonadReader Ghci, MonadIO, MonadState GameState, MonadError String)
 
-class (MonadState GameState m) => GhciWithState m where
+class (MonadState GameState m, MonadError String m) => GhciWithState m where
   execute :: String -> m [String]
 
 instance GhciWithState App where
@@ -39,6 +40,6 @@ putStrLnIO :: String -> App ()
 putStrLnIO = liftIO . putStrLn
 
 execApp :: [Term] -> Ghci -> App a -> IO GameState
-execApp terms ghci (App app) = runReaderT (execStateT app gameState) ghci
+execApp terms ghci (App app) = runReaderT (execStateT (runExceptT app) gameState) ghci
   where
     gameState = GameState {_scores = [], _term = head terms, _allTerms = tail terms, _guessScore = Unguessed 5}

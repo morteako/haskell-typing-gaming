@@ -6,6 +6,7 @@ module Main where
 
 import App
 import Control.Lens
+import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.List (isPrefixOf)
@@ -31,12 +32,6 @@ parseInput "-skip" = Skip
 parseInput "-quit" = Quit
 parseInput "-q" = Quit
 parseInput g = Guess g
-
---todo:shuffle list instead
-getRandomTerm :: MonadIO m => [Term] -> m Term
-getRandomTerm terms = do
-  i <- randomRIO (0, length terms - 1)
-  return $ terms !! i
 
 parens :: String -> String
 parens s = "(" ++ s ++ ")"
@@ -68,8 +63,19 @@ checkGuess g = do
 printPrompt :: App ()
 printPrompt = do
   gameState <- get
-  putStrLnIO $ "Score: " ++ show (getTotalScore gameState) ++ ". Guesses left : " ++ gameState ^. (guessScore . getGuessScore . to show)
+  printIO (gameState ^. allTerms)
+  let scorePromp = "Score: " ++ show (getTotalScore gameState)
+  let guessPrompt = ". Guesses left : " ++ gameState ^. (guessScore . getGuessScore . to show)
+  let termsLeftPrompt = ". Terms left : " ++ show (gameState ^. allTerms . to length + 1)
+  putStrLnIO $ scorePromp ++ guessPrompt ++ termsLeftPrompt
   putStrIO $ gameState ^. term . name ++ " :: "
+
+mainLoopCatch :: App ()
+mainLoopCatch = do
+  catchError mainLoop $ \e -> do
+    printIO "DONE"
+    gameState <- get
+    printIO $ gameState ^. totalScore
 
 mainLoop :: App ()
 mainLoop = do
@@ -133,11 +139,14 @@ update MostGenGuess = do
   resetTerm
   void resetGuessScore
 
-resetTerm :: MonadState GameState m => m ()
+resetTerm :: GhciWithState m => m ()
 resetTerm = do
-  newTerm <- use (allTerms . to head)
-  term .= newTerm
-  allTerms %= tail
+  newTerm <- preuse (allTerms . _head)
+  case newTerm of
+    Nothing -> throwError "oo"
+    Just newTerm -> do
+      term .= newTerm
+      allTerms %= tail
 
 resetGuessScore :: MonadState GameState m => m GuessScore
 resetGuessScore = guessScore <<.= Unguessed 5
@@ -157,5 +166,6 @@ main = do
   exec ghci "import Data.List"
   ls <- exec ghci ":browse Data.List"
   terms <- shuffleM $ parseBrowse ls
-  execApp terms ghci mainLoop
+  let limit = 10
+  execApp (take limit terms) ghci mainLoopCatch
   stopGhci ghci
