@@ -41,16 +41,16 @@ term *:: type' = term ++ " :: " ++ type'
 checkGuess :: GhciSession m => Term -> String -> m TypeCheckResult
 checkGuess _ "-g" = pure MostGeneral
 checkGuess _ "-s" = pure Specialized
-checkGuess Term {_name, _termType} g = do
+checkGuess Term{_name, _termType} g = do
   let guessInput = ":t " ++ parens (_name *:: g)
   let isValidGuess ghciAnswer = ("(" ++ _name) `isPrefixOf` concat ghciAnswer
   mostGeneralGuess <- isValidGuess <$> execute (guessInput *:: _termType)
   specializedGuess <- isValidGuess <$> execute guessInput
   pure $ toTypeCheckResult mostGeneralGuess specializedGuess
-  where
-    toTypeCheckResult True _ = MostGeneral
-    toTypeCheckResult _ True = Specialized
-    toTypeCheckResult _ False = Incorrect
+ where
+  toTypeCheckResult True _ = MostGeneral
+  toTypeCheckResult _ True = Specialized
+  toTypeCheckResult _ False = Incorrect
 
 --fix prints
 printPrompt :: InputOutput m => GameState -> m ()
@@ -84,23 +84,23 @@ mainLoop = do
       t <- use term
       res <- checkGuess t g
       actionTypeCheckResult res
-  where
-    actionTypeCheckResult MostGeneral = do
-      s <- use currentGuessScore
-      putStrLnIO $ "Completely correct! +" ++ show s
-      update MostGenGuess
-      mainLoop
-    actionTypeCheckResult Specialized = do
-      betterGuess <- update SpecializedGuess
-      s <- use currentGuessScore
-      if betterGuess
-        then putStrLnIO $ "Partially correct, but not the most general type! +" ++ show s
-        else putStrLnIO $ "Still not the most general type!"
-      mainLoop
-    actionTypeCheckResult Incorrect = do
-      putStrLnIO "Incorrect!"
-      update DecreaseScore
-      mainLoop
+ where
+  actionTypeCheckResult MostGeneral = do
+    s <- use currentGuessScore
+    putStrLnIO $ "Completely correct! +" ++ show s
+    update MostGenGuess
+    mainLoop
+  actionTypeCheckResult Specialized = do
+    betterGuess <- update SpecializedGuess
+    s <- use currentGuessScore
+    if betterGuess
+      then putStrLnIO $ "Partially correct, but not the most general type! +" ++ show s
+      else putStrLnIO $ "Still not the most general type!"
+    mainLoop
+  actionTypeCheckResult Incorrect = do
+    putStrLnIO "Incorrect!"
+    update DecreaseScore
+    mainLoop
 
 data UpdateReason a where
   DecreaseScore :: UpdateReason ()

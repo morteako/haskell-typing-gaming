@@ -10,11 +10,11 @@ module App where
 import Control.Applicative (Alternative)
 import Control.Monad.Except
 import Control.Monad.Reader
-import Control.Monad.State
-  ( MonadState,
-    StateT (StateT),
-    execStateT,
-  )
+import Control.Monad.State (
+  MonadState,
+  StateT (StateT),
+  execStateT,
+ )
 import Language.Haskell.Ghcid (Ghci, exec)
 import Term
 
@@ -56,5 +56,5 @@ putStrLnIO = liftIO . putStrLn
 
 execApp :: [Term] -> Ghci -> App a -> IO GameState
 execApp terms ghci (App app) = runReaderT (execStateT (runExceptT app) gameState) ghci
-  where
-    gameState = GameState {_scores = [], _term = head terms, _allTerms = tail terms, _guessScore = Unguessed 5}
+ where
+  gameState = GameState{_scores = [], _term = head terms, _allTerms = tail terms, _guessScore = Unguessed 5}
