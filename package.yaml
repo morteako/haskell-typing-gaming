@@ -21,6 +21,7 @@ dependencies:
   - random
   - split
   - random-shuffle
+  - optparse-applicative
 
 executables:
   typing-game:

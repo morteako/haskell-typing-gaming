@@ -5,6 +5,7 @@
 module Main where
 
 import App
+import Args
 import Control.Lens
 import Control.Monad.Except
 import Control.Monad.State
@@ -14,6 +15,7 @@ import GHC.IO (unsafePerformIO)
 import GHC.IO.Handle
 import GHC.IO.Handle.FD (stdin, stdout)
 import Language.Haskell.Ghcid
+import Options.Applicative
 import Parse (parseBrowse)
 import System.Random (randomRIO)
 import System.Random.Shuffle (shuffleM)
@@ -147,12 +149,13 @@ resetGuessScore = guessScore <<.= Unguessed 5
 
 main :: IO ()
 main = do
+  Args{numQuestions, difficulty} <- execArgsParser
   hSetBuffering stdin LineBuffering
   hSetBuffering stdout NoBuffering
   (ghci, _) <- startGhci "ghci" (Just ".") (\_ s -> print s)
-  exec ghci "import Data.List"
-  ls <- exec ghci ":browse Data.List"
+  let moduleWithTerms = getModule difficulty
+  exec ghci $ "import " ++ moduleWithTerms
+  ls <- exec ghci $ ":browse " ++ moduleWithTerms
   terms <- shuffleM $ parseBrowse ls
-  let limit = 10
-  execApp (take limit terms) ghci mainLoopCatch
+  execApp (take numQuestions terms) ghci mainLoopCatch
   stopGhci ghci

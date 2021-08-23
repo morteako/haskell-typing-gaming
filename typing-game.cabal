@@ -21,6 +21,7 @@ executable typing-game
   main-is: Main.hs
   other-modules:
       App
+      Args
       Parse
       Term
       Paths_typing_game
@@ -31,6 +32,7 @@ executable typing-game
     , ghcid
     , lens
     , mtl
+    , optparse-applicative
     , random
     , random-shuffle
     , split
