@@ -15,6 +15,7 @@ import Control.Monad.State (
   StateT (StateT),
   execStateT,
  )
+import Data.List.NonEmpty
 import Language.Haskell.Ghcid (Ghci, exec)
 import Term
 
@@ -28,15 +29,17 @@ class Monad m => GhciSession m where
 
 class Monad m => InputOutput m where
   readLine :: m String
-  printStr :: Show s => s -> m ()
-  printStrLn :: String -> m ()
+  printIO :: Show s => s -> m ()
+  putStrLnIO :: String -> m ()
+  putStrIO :: String -> m ()
 
 -- printStr_ :: String -> m ()
 
 instance InputOutput App where
   readLine = liftIO getLine
-  printStr = liftIO . print
-  printStrLn = liftIO . putStrLn
+  printIO = liftIO . print
+  putStrLnIO = liftIO . putStrLn
+  putStrIO = liftIO . putStr
 
 instance GhciSession App where
   execute s = do
@@ -45,16 +48,7 @@ instance GhciSession App where
     ghci <- ask
     liftIO $ exec ghci s
 
-printIO :: Show s => s -> App ()
-printIO = liftIO . print
-
-putStrIO :: String -> App ()
-putStrIO = liftIO . putStr
-
-putStrLnIO :: String -> App ()
-putStrLnIO = liftIO . putStrLn
-
-execApp :: [Term] -> Ghci -> App a -> IO GameState
-execApp terms ghci (App app) = runReaderT (execStateT (runExceptT app) gameState) ghci
+execApp :: Term -> [Term] -> Ghci -> App a -> IO GameState
+execApp t ts ghci (App app) = runReaderT (execStateT (runExceptT app) gameState) ghci
  where
-  gameState = GameState{_scores = [], _term = head terms, _allTerms = tail terms, _guessScore = Unguessed 5}
+  gameState = GameState{_scores = [], _term = t, _allTerms = ts, _guessScore = Unguessed 5}

@@ -57,12 +57,12 @@ checkGuess Term{_name, _termType} g = do
 --fix prints
 printPrompt :: InputOutput m => GameState -> m ()
 printPrompt gameState = do
-  printStr (gameState ^. allTerms)
+  printIO (gameState ^. allTerms)
   let scorePromp = "Score: " ++ show (getTotalScore gameState)
   let guessPrompt = ". Guesses left : " ++ gameState ^. guessScore . getGuessScore . to show
   let termsLeftPrompt = ". Terms left : " ++ gameState ^. allTerms . to length . to succ . to show
-  printStrLn $ scorePromp ++ guessPrompt ++ termsLeftPrompt
-  printStr $ gameState ^. term . name ++ " :: "
+  putStrLnIO $ scorePromp ++ guessPrompt ++ termsLeftPrompt
+  putStrIO $ gameState ^. term . name ++ " :: "
 
 mainLoopCatch :: App ()
 mainLoopCatch = do
@@ -157,5 +157,9 @@ main = do
   exec ghci $ "import " ++ moduleWithTerms
   ls <- exec ghci $ ":browse " ++ moduleWithTerms
   terms <- shuffleM $ parseBrowse ls
-  execApp (take numQuestions terms) ghci mainLoopCatch
+  case take numQuestions terms of
+    [] ->
+      putStrLn "Error todo"
+    (startTerm : restOfTerms) ->
+      void $ execApp startTerm restOfTerms ghci mainLoopCatch
   stopGhci ghci
