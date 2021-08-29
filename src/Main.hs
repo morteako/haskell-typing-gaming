@@ -16,7 +16,7 @@ import GHC.IO.Handle
 import GHC.IO.Handle.FD (stdin, stdout)
 import Language.Haskell.Ghcid
 import Options.Applicative
-import Parse (parseBrowse)
+import Parse (groupTerms, parseBrowse)
 import System.Random (randomRIO)
 import System.Random.Shuffle (shuffleM)
 import Term
@@ -156,6 +156,7 @@ main = do
   let moduleWithTerms = getModule difficulty
   exec ghci $ "import " ++ moduleWithTerms
   ls <- exec ghci $ ":browse " ++ moduleWithTerms
+  mapM print $ groupTerms ls
   terms <- shuffleM $ parseBrowse ls
   case take numQuestions terms of
     [] ->

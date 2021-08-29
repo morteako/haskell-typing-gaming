@@ -24,6 +24,7 @@ executable typing-game
       Args
       Parse
       Term
+      Utils
       Paths_typing_game
   hs-source-dirs:
       src
