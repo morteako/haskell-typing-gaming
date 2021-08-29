@@ -43,10 +43,10 @@ term *:: type' = term ++ " :: " ++ type'
 checkGuess :: GhciSession m => Term -> String -> m TypeCheckResult
 checkGuess _ "-g" = pure MostGeneral
 checkGuess _ "-s" = pure Specialized
-checkGuess Term{_name, _termType} g = do
+checkGuess term@Term{_name} g = do
   let guessInput = ":t " ++ parens (_name *:: g)
   let isValidGuess ghciAnswer = ("(" ++ _name) `isPrefixOf` concat ghciAnswer
-  mostGeneralGuess <- isValidGuess <$> execute (guessInput *:: _termType)
+  mostGeneralGuess <- isValidGuess <$> execute (guessInput *:: prettyTermtype term)
   specializedGuess <- isValidGuess <$> execute guessInput
   pure $ toTypeCheckResult mostGeneralGuess specializedGuess
  where
@@ -156,7 +156,7 @@ main = do
   let moduleWithTerms = getModule difficulty
   exec ghci $ "import " ++ moduleWithTerms
   ls <- exec ghci $ ":browse " ++ moduleWithTerms
-  mapM print $ groupTerms ls
+  -- mapM print $ groupTerms ls
   terms <- shuffleM $ parseBrowse ls
   case take numQuestions terms of
     [] ->

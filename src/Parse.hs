@@ -1,20 +1,22 @@
+{-# LANGUAGE PartialTypeSignatures #-}
+
 module Parse where
 
+import Data.Functor (void)
 import Data.List (groupBy, isPrefixOf)
 import Data.List.Split (splitOn)
 import Data.Maybe (mapMaybe)
+import Language.Haskell.Exts
 import Term (Term (..))
-import qualified Utils
 
-parseType :: String -> Maybe Term
-parseType str =
-  case splitOn " ::" str of
-    termName : typeStr : _ -> Just $ Term{_name = termName, _context = "", _termType = typeStr}
-    _ -> Nothing
+parseToTerm :: String -> Maybe Term
+parseToTerm str = case parseDecl str of
+  ParseOk (TypeSig _ [name] type') -> Just $ Term{_name = prettyPrint name, _termType = void type'}
+  _ -> Nothing
 
 -- fix fully qualified aka remove
 parseBrowse :: [String] -> [Term]
-parseBrowse = mapMaybe parseType . filter isNormalTerm . groupTerms
+parseBrowse = mapMaybe parseToTerm . filter isNormalTerm . groupTerms
  where
   isNormalTerm x = all ($ x) [notNewline, notTypeAlias, notTypeClass]
   notNewline = not . isPrefixOf " "

@@ -24,13 +24,13 @@ executable typing-game
       Args
       Parse
       Term
-      Utils
       Paths_typing_game
   hs-source-dirs:
       src
   build-depends:
       base >=4.7 && <5
     , ghcid
+    , haskell-src-exts
     , lens
     , mtl
     , optparse-applicative

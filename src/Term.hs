@@ -5,11 +5,11 @@ module Term where
 
 import Control.Lens
 import GHC.Natural (Natural)
+import Language.Haskell.Exts
 
 data Term = Term
   { _name :: String
-  , _context :: String
-  , _termType :: String
+  , _termType :: Type ()
   }
   deriving (Show, Eq)
 
@@ -22,6 +22,9 @@ toScore (Partially s) = s
 
 makeLenses ''GuessScore
 makePrisms ''GuessScore
+
+prettyTermtype :: Term -> String
+prettyTermtype = foldOf (termType . to prettyPrint)
 
 _partialGuess :: Prism' GuessScore GuessScore
 _partialGuess = prism' id f

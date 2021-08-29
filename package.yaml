@@ -22,6 +22,7 @@ dependencies:
   - split
   - random-shuffle
   - optparse-applicative
+  - haskell-src-exts
 
 executables:
   typing-game:
