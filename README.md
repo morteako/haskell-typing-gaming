@@ -15,11 +15,8 @@ WIP
 
 ## todo
 - timed scoring
-- print context hint
-- parse multiline-terms
 - testing
-- cmdline arguments
-  - more modules
+- more modules
 - logging
 - highscore
 - nix full build
