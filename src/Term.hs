@@ -17,8 +17,20 @@ makeLenses ''Term
 
 data GuessScore = Unguessed {_getGuessScore :: Natural} | Partially {_getGuessScore :: Natural} deriving (Show, Eq)
 
+toScore :: GuessScore -> Natural
 toScore (Unguessed s) = s + 5
 toScore (Partially s) = s
+
+findContextHint :: Type () -> GuessScore -> ContextHint
+findContextHint (TyForall () _ context _) guessScore =
+  case guessScore of
+    Unguessed 5 -> emptyContextHint
+    _ -> ContextHint $ foldMap prettyPrint context
+findContextHint _ _ = emptyContextHint
+
+newtype ContextHint = ContextHint {getContextHint :: String}
+
+emptyContextHint = ContextHint ""
 
 makeLenses ''GuessScore
 makePrisms ''GuessScore

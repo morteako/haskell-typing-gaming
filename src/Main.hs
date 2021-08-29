@@ -9,6 +9,7 @@ import Args
 import Control.Lens
 import Control.Monad.Except
 import Control.Monad.State
+import Data.Foldable (fold)
 import Data.List (isPrefixOf)
 import Data.Maybe (isJust, mapMaybe)
 import GHC.IO (unsafePerformIO)
@@ -55,14 +56,15 @@ checkGuess term@Term{_name} g = do
   toTypeCheckResult _ False = Incorrect
 
 --fix prints
-printPrompt :: InputOutput m => GameState -> m ()
-printPrompt gameState = do
+printPrompt :: InputOutput m => ContextHint -> GameState -> m ()
+printPrompt (ContextHint contextHint) gameState = do
   printIO (gameState ^. allTerms)
   let scorePromp = "Score: " ++ show (getTotalScore gameState)
   let guessPrompt = ". Guesses left : " ++ gameState ^. guessScore . getGuessScore . to show
   let termsLeftPrompt = ". Terms left : " ++ gameState ^. allTerms . to length . to succ . to show
   putStrLnIO $ scorePromp ++ guessPrompt ++ termsLeftPrompt
-  putStrIO $ gameState ^. term . name ++ " :: "
+  let currentTerm = gameState ^. term
+  putStrIO $ currentTerm ^. name ++ " :: " ++ contextHint
 
 mainLoopCatch :: App ()
 mainLoopCatch = do
@@ -74,7 +76,10 @@ mainLoopCatch = do
 mainLoop :: App ()
 mainLoop = do
   gameState <- get
-  printPrompt gameState
+  curTerm <- use term
+  curGuessScore <- use guessScore
+  let context = findContextHint (curTerm ^. termType) curGuessScore
+  printPrompt context gameState
   inp <- parseInput <$> liftIO getLine
   case inp of
     Skip -> do
@@ -83,8 +88,7 @@ mainLoop = do
     Quit -> guard False
     Blank -> mainLoop
     Guess g -> do
-      t <- use term
-      res <- checkGuess t g
+      res <- checkGuess curTerm g
       actionTypeCheckResult res
  where
   actionTypeCheckResult MostGeneral = do
@@ -152,11 +156,12 @@ main = do
   Args{numQuestions, difficulty} <- execArgsParser
   hSetBuffering stdin LineBuffering
   hSetBuffering stdout NoBuffering
-  (ghci, _) <- startGhci "ghci" (Just ".") (\_ s -> print s)
+  (ghci, _) <- startGhci "ghci" (Just "src") (\_ s -> print s)
   let moduleWithTerms = getModule difficulty
+  print moduleWithTerms
   exec ghci $ "import " ++ moduleWithTerms
   ls <- exec ghci $ ":browse " ++ moduleWithTerms
-  -- mapM print $ groupTerms ls
+  mapM print ls
   terms <- shuffleM $ parseBrowse ls
   case take numQuestions terms of
     [] ->

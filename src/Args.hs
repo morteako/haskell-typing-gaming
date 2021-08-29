@@ -13,12 +13,13 @@ data Args = Args
   }
   deriving (Show)
 
-data Difficulty = Easy | Medium | Hard deriving (Eq, Show)
+data Difficulty = Easy | Medium | Hard | Test deriving (Eq, Show)
 
 getModule :: Difficulty -> String
 getModule Easy = "Data.List"
 getModule Medium = "Data.List" --TODO find suiting
 getModule Hard = "Control.Lens"
+getModule Test = "T"
 
 pnumQuestions :: Parser Int
 pnumQuestions = option auto (long "num-questions" <> value 10 <> help "Number of terms to guess")
@@ -31,6 +32,7 @@ pdifficulty = option (eitherReader parse) (long "difficulty" <> value Easy <> he
   parse "easy" = Right Easy
   parse "medium" = Right Medium
   parse "hard" = Right Hard
+  parse "test" = Right Test
   parse _ = Left $ "needs to be " ++ options
 
 parseArgs :: Parser Args
