@@ -1,7 +1,11 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 
 module Parse where
 
+import Control.Lens
+import Control.Monad
+import Data.Data.Lens
 import Data.Functor (void)
 import Data.List (groupBy, isPrefixOf)
 import Data.Maybe (mapMaybe)
@@ -9,16 +13,18 @@ import Language.Haskell.Exts
 import Term (Term (..))
 
 parseToTerm :: String -> Maybe Term
-parseToTerm str = case parseDecl str of
-  ParseOk (TypeSig _ [name] type') -> Just $ Term{_name = prettyPrint name, _termType = void type'}
-  _ -> Nothing
+parseToTerm str = do
+  ParseOk (TypeSig _ [name] type') <- Just $ void <$> parseDecl str
+  pure $ Term{_name = prettyPrint name, _termType = type'}
+
+notModule :: Term -> Bool
+notModule Term{_termType} = hasn't (template :: Traversal' (Type ()) (ModuleName ())) _termType
 
 -- fix fully qualified aka remove
 parseBrowse :: [String] -> [Term]
-parseBrowse = mapMaybe parseToTerm . filter isNormalTerm . groupTerms
+parseBrowse = filter notModule . mapMaybe parseToTerm . filter isNormalTerm . groupTerms
  where
-  isNormalTerm x = all ($ x) [notNewline, notTypeAlias, notTypeClass]
-  notNewline = not . isPrefixOf " "
+  isNormalTerm x = all ($ x) [notTypeAlias, notTypeClass]
   notTypeAlias = not . isPrefixOf "type "
   notTypeClass = not . isPrefixOf "class "
 

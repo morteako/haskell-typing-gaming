@@ -1,9 +1,11 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Term where
 
 import Control.Lens
+import Data.Data
 import GHC.Natural (Natural)
 import Language.Haskell.Exts
 
@@ -11,7 +13,9 @@ data Term = Term
   { _name :: String
   , _termType :: Type ()
   }
-  deriving (Show, Eq)
+  deriving (Show, Eq, Data)
+
+instance Plated Term
 
 makeLenses ''Term
 
