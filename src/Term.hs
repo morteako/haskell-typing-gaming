@@ -61,6 +61,12 @@ totalScore = scores . to sum
 getTotalScore :: GameState -> Natural
 getTotalScore = foldOf (scores . to sum)
 
+getGuessesLeft :: Lens' GameState Natural
+getGuessesLeft = guessScore . getGuessScore
+
+getTermsLeft :: Fold GameState Int
+getTermsLeft = allTerms . to length . to succ
+
 data StateChange = NewTerm | GuessedPartially deriving (Show, Eq)
 
 newState :: StateChange -> GameState -> GameState

@@ -64,8 +64,8 @@ mainLoop = do
 checkGuess :: GhciSession m => Term -> String -> m TypeCheckResult
 checkGuess _ "-g" = pure MostGeneral
 checkGuess _ "-s" = pure Specialized
-checkGuess term@Term{_name} g = do
-    let guessInput = ":t " ++ parens (_name *:: g)
+checkGuess term@Term{_name} guess = do
+    let guessInput = ":t " ++ parens (_name *:: guess)
     let isValidGuess ghciAnswer = ("(" ++ _name) `isPrefixOf` concat ghciAnswer
     mostGeneralGuess <- isValidGuess <$> execute (guessInput *:: prettyTermtype term)
     specializedGuess <- isValidGuess <$> execute guessInput
@@ -78,11 +78,11 @@ checkGuess term@Term{_name} g = do
 printPrompt :: InputOutput m => ContextHint -> GameState -> m ()
 printPrompt (ContextHint contextHint) gameState = do
     let scorePromp = "Score: " ++ show (getTotalScore gameState)
-    let guessPrompt = ". Guesses left : " ++ gameState ^. guessScore . getGuessScore . to show
-    let termsLeftPrompt = ". Terms left : " ++ gameState ^. allTerms . to length . to succ . to show
+    let guessPrompt = ". Guesses left : " ++ gameState ^. getGuessesLeft . to show
+    let termsLeftPrompt = ". Terms left : " ++ gameState ^. getTermsLeft . to show
     putStrLnIO $ scorePromp ++ guessPrompt ++ termsLeftPrompt
-    let currentTerm = gameState ^. term
-    putStrIO $ currentTerm ^. name ++ " :: " ++ contextHint
+    let currentTermName = gameState ^. term . name
+    putStrIO $ currentTermName *:: contextHint
 
 updateDecreaseScore :: (MonadState GameState m, MonadError () m) => m ()
 updateDecreaseScore = do
