@@ -4,7 +4,6 @@ module Parse where
 
 import Data.Functor (void)
 import Data.List (groupBy, isPrefixOf)
-import Data.List.Split (splitOn)
 import Data.Maybe (mapMaybe)
 import Language.Haskell.Exts
 import Term (Term (..))
@@ -28,8 +27,3 @@ groupTerms = fmap concat . groupBy f
  where
   f _ (' ' : _) = True
   f _ _ = False
-
--- term _no -> true
--- _q _no -> true
--- _q term -> false
--- term term -> false

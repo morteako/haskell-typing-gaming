@@ -15,9 +15,8 @@ import Control.Monad.State (
   StateT (StateT),
   execStateT,
  )
-import Data.List.NonEmpty
 import Language.Haskell.Ghcid (Ghci, exec)
-import Term
+import Term (GameState)
 
 newtype App a = App {runApp :: ExceptT String (StateT GameState (ReaderT Ghci IO)) a}
   deriving newtype (Functor, Applicative, Monad, Alternative, MonadReader Ghci, MonadIO, MonadState GameState, MonadError String)
@@ -33,8 +32,6 @@ class Monad m => InputOutput m where
   putStrLnIO :: String -> m ()
   putStrIO :: String -> m ()
 
--- printStr_ :: String -> m ()
-
 instance InputOutput App where
   readLine = liftIO getLine
   printIO = liftIO . print
@@ -43,12 +40,5 @@ instance InputOutput App where
 
 instance GhciSession App where
   execute s = do
-    putStrIO "DEBUG : "
-    putStrLnIO s
     ghci <- ask
     liftIO $ exec ghci s
-
-execApp :: Term -> [Term] -> Ghci -> App a -> IO GameState
-execApp t ts ghci (App app) = runReaderT (execStateT (runExceptT app) gameState) ghci
- where
-  gameState = GameState{_scores = [], _term = t, _allTerms = ts, _guessScore = Unguessed 5}

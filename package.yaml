@@ -19,7 +19,6 @@ dependencies:
   - mtl
   - transformers
   - random
-  - split
   - random-shuffle
   - optparse-applicative
   - haskell-src-exts

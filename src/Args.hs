@@ -19,7 +19,7 @@ getModule :: Difficulty -> String
 getModule Easy = "Data.List"
 getModule Medium = "Data.List" --TODO find suiting
 getModule Hard = "Control.Lens"
-getModule Test = "T"
+getModule Test = "Data.List"
 
 pnumQuestions :: Parser Int
 pnumQuestions = option auto (long "num-questions" <> value 10 <> help "Number of terms to guess")

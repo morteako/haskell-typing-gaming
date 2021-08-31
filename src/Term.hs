@@ -24,13 +24,11 @@ toScore (Partially s) = s
 findContextHint :: Type () -> GuessScore -> ContextHint
 findContextHint (TyForall () _ context _) guessScore =
   case guessScore of
-    Unguessed 5 -> emptyContextHint
+    Unguessed 5 -> ContextHint ""
     _ -> ContextHint $ foldMap prettyPrint context
-findContextHint _ _ = emptyContextHint
+findContextHint _ _ = ContextHint ""
 
 newtype ContextHint = ContextHint {getContextHint :: String}
-
-emptyContextHint = ContextHint ""
 
 makeLenses ''GuessScore
 makePrisms ''GuessScore
@@ -81,9 +79,9 @@ newState stateChange gameState@GameState{_scores, _term, _allTerms, _guessScore}
         , _guessScore = Partially $ _getGuessScore _guessScore
         }
 
-predNatural :: Natural -> Maybe Natural
-predNatural 1 = Nothing
-predNatural x = Just $ pred x
-
 decGuessScore :: GameState -> Maybe GameState
 decGuessScore = traverseOf (guessScore . getGuessScore) predNatural
+ where
+  predNatural :: Natural -> Maybe Natural
+  predNatural 1 = Nothing
+  predNatural x = Just $ pred x
