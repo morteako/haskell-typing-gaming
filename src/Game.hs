@@ -1,34 +1,26 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Game where
+module Game (runGame) where
 
 import App
 import Control.Lens
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
-import Data.Foldable (fold)
 import Data.List (isPrefixOf)
 import Data.Maybe (isJust, mapMaybe)
-import GHC.IO (unsafePerformIO)
-
-import GHC.IO.Handle.FD (stdin, stdout)
 import Language.Haskell.Ghcid (Ghci)
-import Parse (groupTerms, parseBrowse)
-import System.Random (randomRIO)
-import System.Random.Shuffle (shuffleM)
 import Term
 
-runGame :: Term -> [Term] -> Ghci -> App a -> IO GameState
-runGame t ts ghci (App app) = runReaderT (execStateT (runExceptT app) gameState) ghci
+runGame :: Term -> [Term] -> Ghci -> IO GameState
+runGame t ts ghci = runReaderT (execStateT (runExceptT $ runApp mainLoopCatch) gameState) ghci
   where
     gameState = GameState{_scores = [], _term = t, _allTerms = ts, _guessScore = Unguessed 5}
 
 mainLoopCatch :: App ()
 mainLoopCatch = do
-    catchError mainLoop $ \_ -> do
+    catchError mainLoop $ \() -> do
         putStrLnIO "Game done"
         gameState <- get
         putStrIO "Final score :"
@@ -92,7 +84,7 @@ printPrompt (ContextHint contextHint) gameState = do
     let currentTerm = gameState ^. term
     putStrIO $ currentTerm ^. name ++ " :: " ++ contextHint
 
-updateDecreaseScore :: (MonadState GameState m, MonadError String m) => m ()
+updateDecreaseScore :: (MonadState GameState m, MonadError () m) => m ()
 updateDecreaseScore = do
     ns <- use (to decGuessScore)
     case ns of
@@ -101,12 +93,12 @@ updateDecreaseScore = do
             resetTerm
             void resetGuessScore
 
-updateUpdateSkipOrNoMoreGuesses :: (MonadState GameState m, MonadError String m) => m ()
+updateUpdateSkipOrNoMoreGuesses :: (MonadState GameState m, MonadError () m) => m ()
 updateUpdateSkipOrNoMoreGuesses = do
     resetTerm
     void resetGuessScore
 
-updateSpecializedGuess :: (MonadState GameState m, MonadError String m) => m Bool
+updateSpecializedGuess :: (MonadState GameState m, MonadError () m) => m Bool
 updateSpecializedGuess = do
     mayGuess <- preuse (guessScore . _partialGuess)
     let f partialGuess = do
@@ -116,18 +108,18 @@ updateSpecializedGuess = do
     updateDecreaseScore
     pure betterGuess
 
-updateMostGenGuess :: (MonadState GameState m, MonadError String m) => m ()
+updateMostGenGuess :: (MonadState GameState m, MonadError () m) => m ()
 updateMostGenGuess = do
     oldGuessScore <- resetGuessScore
     scores %= cons (toScore oldGuessScore)
     resetTerm
     void resetGuessScore
 
-resetTerm :: (MonadState GameState m, MonadError String m) => m ()
+resetTerm :: (MonadState GameState m, MonadError () m) => m ()
 resetTerm = do
     newTerm <- preuse (allTerms . _head)
     case newTerm of
-        Nothing -> throwError "oo"
+        Nothing -> throwError ()
         Just newTerm -> do
             term .= newTerm
             allTerms %= tail

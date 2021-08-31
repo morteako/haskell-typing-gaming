@@ -25,7 +25,7 @@ findContextHint :: Type () -> GuessScore -> ContextHint
 findContextHint (TyForall () _ context _) guessScore =
   case guessScore of
     Unguessed 5 -> ContextHint ""
-    _ -> ContextHint $ foldMap prettyPrint context
+    _ -> ContextHint $ foldMap prettyPrint context ++ " "
 findContextHint _ _ = ContextHint ""
 
 newtype ContextHint = ContextHint {getContextHint :: String}

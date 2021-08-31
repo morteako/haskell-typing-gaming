@@ -1,22 +1,15 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Main where
 
 import Args
-
 import Control.Monad.Except (void)
-import Data.Foldable (fold)
-import Data.List (isPrefixOf)
-import Data.Maybe (isJust, mapMaybe)
 import GHC.IO (unsafePerformIO)
 import GHC.IO.Handle
 import GHC.IO.Handle.FD (stdin, stdout)
-import Game (mainLoopCatch, runGame)
+import Game (runGame)
 import Language.Haskell.Ghcid (exec, startGhci, stopGhci)
 import Parse (groupTerms, parseBrowse)
-import System.Random (randomRIO)
 import System.Random.Shuffle (shuffleM)
 
 main :: IO ()
@@ -33,5 +26,5 @@ main = do
     [] ->
       putStrLn "Internal error. Not enough terms in module. Exiting..."
     (startTerm : restOfTerms) ->
-      void $ runGame startTerm restOfTerms ghci mainLoopCatch
+      void $ runGame startTerm restOfTerms ghci
   stopGhci ghci

@@ -1,9 +1,6 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE QuantifiedConstraints #-}
-{-# LANGUAGE RankNTypes #-}
 
 module App where
 
@@ -18,10 +15,8 @@ import Control.Monad.State (
 import Language.Haskell.Ghcid (Ghci, exec)
 import Term (GameState)
 
-newtype App a = App {runApp :: ExceptT String (StateT GameState (ReaderT Ghci IO)) a}
-  deriving newtype (Functor, Applicative, Monad, Alternative, MonadReader Ghci, MonadIO, MonadState GameState, MonadError String)
-
-type StateErrorGhci m = (GhciSession m, MonadState GameState m, MonadError String m)
+newtype App a = App {runApp :: ExceptT () (StateT GameState (ReaderT Ghci IO)) a}
+  deriving newtype (Functor, Applicative, Monad, Alternative, MonadReader Ghci, MonadIO, MonadState GameState, MonadError ())
 
 class Monad m => GhciSession m where
   execute :: String -> m [String]
