@@ -44,7 +44,7 @@ mainLoop = do
     inp <- parseInput <$> liftIO getLine
     case inp of
         Skip -> do
-            update UpdateSkipOrNoMoreGuesses
+            updateUpdateSkipOrNoMoreGuesses
             mainLoop
         Quit -> guard False
         Blank -> mainLoop
@@ -55,10 +55,10 @@ mainLoop = do
     actionTypeCheckResult MostGeneral = do
         s <- use currentGuessScore
         putStrLnIO $ "Completely correct! +" ++ show s
-        update MostGenGuess
+        updateMostGenGuess
         mainLoop
     actionTypeCheckResult Specialized = do
-        betterGuess <- update SpecializedGuess
+        betterGuess <- updateSpecializedGuess
         s <- use currentGuessScore
         if betterGuess
             then putStrLnIO $ "Partially correct, but not the most general type! +" ++ show s
@@ -66,7 +66,7 @@ mainLoop = do
         mainLoop
     actionTypeCheckResult Incorrect = do
         putStrLnIO "Incorrect!"
-        update DecreaseScore
+        updateDecreaseScore
         mainLoop
 
 checkGuess :: GhciSession m => Term -> String -> m TypeCheckResult
@@ -83,7 +83,6 @@ checkGuess term@Term{_name} g = do
     toTypeCheckResult _ True = Specialized
     toTypeCheckResult _ False = Incorrect
 
---fix prints
 printPrompt :: InputOutput m => ContextHint -> GameState -> m ()
 printPrompt (ContextHint contextHint) gameState = do
     let scorePromp = "Score: " ++ show (getTotalScore gameState)
@@ -93,32 +92,32 @@ printPrompt (ContextHint contextHint) gameState = do
     let currentTerm = gameState ^. term
     putStrIO $ currentTerm ^. name ++ " :: " ++ contextHint
 
-data UpdateReason a where
-    DecreaseScore :: UpdateReason ()
-    UpdateSkipOrNoMoreGuesses :: UpdateReason ()
-    SpecializedGuess :: UpdateReason Bool
-    MostGenGuess :: UpdateReason ()
-
-update :: (MonadState GameState m, MonadError String m) => UpdateReason a -> m a
-update DecreaseScore = do
+updateDecreaseScore :: (MonadState GameState m, MonadError String m) => m ()
+updateDecreaseScore = do
     ns <- use (to decGuessScore)
     case ns of
         Just newState' -> put newState'
         Nothing -> do
             resetTerm
             void resetGuessScore
-update UpdateSkipOrNoMoreGuesses = do
+
+updateUpdateSkipOrNoMoreGuesses :: (MonadState GameState m, MonadError String m) => m ()
+updateUpdateSkipOrNoMoreGuesses = do
     resetTerm
     void resetGuessScore
-update SpecializedGuess = do
+
+updateSpecializedGuess :: (MonadState GameState m, MonadError String m) => m Bool
+updateSpecializedGuess = do
     mayGuess <- preuse (guessScore . _partialGuess)
     let f partialGuess = do
             guessScore .= partialGuess
             scores %= cons (toScore partialGuess)
     betterGuess <- isJust <$> traverse f mayGuess
-    update DecreaseScore
+    updateDecreaseScore
     pure betterGuess
-update MostGenGuess = do
+
+updateMostGenGuess :: (MonadState GameState m, MonadError String m) => m ()
+updateMostGenGuess = do
     oldGuessScore <- resetGuessScore
     scores %= cons (toScore oldGuessScore)
     resetTerm
