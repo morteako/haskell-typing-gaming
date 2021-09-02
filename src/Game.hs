@@ -1,9 +1,10 @@
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Game (runGame) where
 
-import App
 import Control.Lens
 import Control.Monad.Except
 import Control.Monad.Reader
@@ -13,12 +14,43 @@ import Data.Maybe (isJust, mapMaybe)
 import GameState
 import Language.Haskell.Ghcid (Ghci)
 
+import Control.Applicative (Alternative)
+import Control.Monad.State (
+    MonadState,
+    StateT (StateT),
+    execStateT,
+ )
+import Language.Haskell.Ghcid (Ghci, exec)
+
+newtype Game a = Game {getGame :: ExceptT () (StateT GameState (ReaderT Ghci IO)) a}
+    deriving newtype (Functor, Applicative, Monad, Alternative, MonadReader Ghci, MonadIO, MonadState GameState, MonadError ())
+
+class Monad m => GhciSession m where
+    execute :: String -> m [String]
+
+class Monad m => InputOutput m where
+    readLine :: m String
+    printIO :: Show s => s -> m ()
+    putStrLnIO :: String -> m ()
+    putStrIO :: String -> m ()
+
+instance InputOutput Game where
+    readLine = liftIO getLine
+    printIO = liftIO . print
+    putStrLnIO = liftIO . putStrLn
+    putStrIO = liftIO . putStr
+
+instance GhciSession Game where
+    execute s = do
+        ghci <- ask
+        liftIO $ exec ghci s
+
 runGame :: Term -> [Term] -> Ghci -> IO GameState
-runGame t ts ghci = runReaderT (execStateT (runExceptT $ runApp mainLoopCatch) gameState) ghci
+runGame t ts ghci = runReaderT (execStateT (runExceptT $ getGame mainLoopCatch) gameState) ghci
   where
     gameState = GameState{_scores = [], _term = t, _allTerms = ts, _guessScore = Unguessed 5}
 
-mainLoopCatch :: App ()
+mainLoopCatch :: Game ()
 mainLoopCatch = do
     catchError mainLoop $ \() -> do
         putStrLnIO "Game done"
@@ -26,7 +58,7 @@ mainLoopCatch = do
         putStrIO "Final score :"
         printIO $ gameState ^. totalScore
 
-mainLoop :: App ()
+mainLoop :: Game ()
 mainLoop = do
     gameState <- get
     curTerm <- use term
