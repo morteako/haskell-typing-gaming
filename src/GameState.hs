@@ -37,6 +37,9 @@ newtype ContextHint = ContextHint {getContextHint :: String}
 makeLenses ''GuessScore
 makePrisms ''GuessScore
 
+prettyTerm :: Term -> String
+prettyTerm Term{_name, _termType} = _name ++ " :: " ++ prettyPrint _termType
+
 prettyTermtype :: Term -> String
 prettyTermtype = foldOf (termType . to prettyPrint)
 

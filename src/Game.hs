@@ -20,6 +20,7 @@ import Control.Monad.State (
     StateT (StateT),
     execStateT,
  )
+import Data.Bool
 import Language.Haskell.Ghcid (Ghci, exec)
 
 newtype Game a = Game {getGame :: ExceptT () (StateT GameState (ReaderT Ghci IO)) a}
@@ -61,6 +62,7 @@ mainLoopCatch = do
 mainLoop :: Game ()
 mainLoop = do
     gameState <- get
+    printIO (gameState ^. guessScore)
     curTerm <- use term
     curGuessScore <- use guessScore
     let context = findContextHint (curTerm ^. termType) curGuessScore
@@ -84,13 +86,18 @@ mainLoop = do
     actionTypeCheckResult Specialized = do
         betterGuess <- updateSpecializedGuess
         s <- use currentGuessScore
-        if betterGuess
-            then putStrLnIO $ "Partially correct, but not the most general type! +" ++ show s
-            else putStrLnIO $ "Still not the most general type!"
+        case betterGuess of
+            FirstSpecialized -> putStrLnIO $ "Partially correct, but not the most general type! +" ++ show s
+            MultipleSpecialized -> putStrLnIO $ "Still not the most general type!"
         mainLoop
     actionTypeCheckResult Incorrect = do
         putStrLnIO "Incorrect!"
-        updateDecreaseScore
+        guessStatus <- updateDecreaseScore
+        when (guessStatus == WasLastChance) $ do
+            oldTerm <- use term
+            putStrLnIO "You did not manage to guess the correct type :("
+            putStrLnIO "The correct type was : "
+            putStrLnIO $ prettyTerm oldTerm
         mainLoop
 
 checkGuess :: GhciSession m => Term -> String -> m TypeCheckResult
@@ -116,38 +123,42 @@ printPrompt (ContextHint contextHint) gameState = do
     let currentTermName = gameState ^. term . name
     putStrIO $ currentTermName *:: contextHint
 
-updateDecreaseScore :: (MonadState GameState m, MonadError () m) => m ()
+updateDecreaseScore :: Game GuessStatus
 updateDecreaseScore = do
     ns <- use (to decGuessScore)
     case ns of
-        Just newState' -> put newState'
+        Just newStateWithDecreasedScore -> do
+            put newStateWithDecreasedScore
+            pure MoreGuessesLeft
         Nothing -> do
             resetTerm
-            void resetGuessScore
+            resetGuessScore
+            pure WasLastChance
 
-updateUpdateSkipOrNoMoreGuesses :: (MonadState GameState m, MonadError () m) => m ()
+updateUpdateSkipOrNoMoreGuesses :: Game ()
 updateUpdateSkipOrNoMoreGuesses = do
     resetTerm
     void resetGuessScore
 
-updateSpecializedGuess :: (MonadState GameState m, MonadError () m) => m Bool
+updateSpecializedGuess :: Game NumOfSpecializedGuesses
 updateSpecializedGuess = do
     mayGuess <- preuse (guessScore . _partialGuess)
     let f partialGuess = do
             guessScore .= partialGuess
             scores %= cons (toScore partialGuess)
-    betterGuess <- isJust <$> traverse f mayGuess
+    let toNumOfSpecializedGuesses = maybe MultipleSpecialized (const FirstSpecialized)
+    betterGuess <- toNumOfSpecializedGuesses <$> traverse f mayGuess
     updateDecreaseScore
     pure betterGuess
 
-updateMostGenGuess :: (MonadState GameState m, MonadError () m) => m ()
+updateMostGenGuess :: Game ()
 updateMostGenGuess = do
     oldGuessScore <- resetGuessScore
     scores %= cons (toScore oldGuessScore)
     resetTerm
     void resetGuessScore
 
-resetTerm :: (MonadState GameState m, MonadError () m) => m ()
+resetTerm :: Game ()
 resetTerm = do
     newTerm <- preuse (allTerms . _head)
     case newTerm of
@@ -164,6 +175,10 @@ data Input = Skip | Quit | Blank | Guess String
 
 data TypeCheckResult = Incorrect | Specialized | MostGeneral
     deriving (Show, Eq)
+
+data GuessStatus = WasLastChance | MoreGuessesLeft deriving (Eq)
+
+data NumOfSpecializedGuesses = FirstSpecialized | MultipleSpecialized deriving (Eq)
 
 parseInput :: String -> Input
 parseInput "" = Blank
