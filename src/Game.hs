@@ -89,17 +89,16 @@ mainLoop = do
         void resetGuessScore
         mainLoop
     actionTypeCheckResult Specialized = do
-        mayFirstPartialllyGuess <- preuse (guessScore . _Unguessed . re _Partially)
+        curGuess <- use guessScore
+        updateDecreaseScore
+        let mayFirstPartialllyGuess = curGuess ^? _Unguessed . re _Partially
         let updatePartialGuess partialGuess = do
                 guessScore .= partialGuess
                 scores %= cons (toScore partialGuess)
         let toNumOfSpecializedGuesses = maybe MultipleSpecialized (const FirstSpecialized)
         betterGuess <- toNumOfSpecializedGuesses <$> traverse updatePartialGuess mayFirstPartialllyGuess
-        updateDecreaseScore
         s <- use currentGuessScore
-        case betterGuess of
-            FirstSpecialized -> putStrLnIO $ "Partially correct, but not the most general type! +" ++ show s
-            MultipleSpecialized -> putStrLnIO $ "Still not the most general type!"
+        putStrLnIO $ getSpecializedGuessOutput s betterGuess
         mainLoop
     actionTypeCheckResult Incorrect = do
         putStrLnIO "Incorrect!"
@@ -137,7 +136,6 @@ printPrompt (ContextHint contextHint) gameState = do
 updateDecreaseScore :: (MonadState GameState m, MonadError () m) => m GuessStatus
 updateDecreaseScore = do
     ns <- traceShow "HEEEI" use (to decGuessScore)
-
     case traceShowId ns of
         Just newStateWithDecreasedScore -> do
             traceShow "huuust" put newStateWithDecreasedScore
@@ -169,6 +167,10 @@ data TypeCheckResult = Incorrect | Specialized | MostGeneral
 data GuessStatus = WasLastChance | MoreGuessesLeft deriving (Eq)
 
 data NumOfSpecializedGuesses = FirstSpecialized | MultipleSpecialized deriving (Eq)
+
+getSpecializedGuessOutput :: (Show a, Num a) => a -> NumOfSpecializedGuesses -> String
+getSpecializedGuessOutput s FirstSpecialized = "Partially correct, but not the most general type! +" ++ show s
+getSpecializedGuessOutput s MultipleSpecialized = "Still not the most general type!"
 
 parseInput :: String -> Input
 parseInput "" = Blank
