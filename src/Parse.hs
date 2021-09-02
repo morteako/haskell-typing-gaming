@@ -9,8 +9,8 @@ import Data.Data.Lens
 import Data.Functor (void)
 import Data.List (groupBy, isPrefixOf)
 import Data.Maybe (mapMaybe)
+import GameState (Term (..))
 import Language.Haskell.Exts
-import Term (Term (..))
 
 parseToTerm :: String -> Maybe Term
 parseToTerm str = do

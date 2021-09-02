@@ -23,8 +23,8 @@ executable typing-game
       App
       Args
       Game
+      GameState
       Parse
-      Term
       Paths_typing_game
   hs-source-dirs:
       src

@@ -10,8 +10,8 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Data.List (isPrefixOf)
 import Data.Maybe (isJust, mapMaybe)
+import GameState
 import Language.Haskell.Ghcid (Ghci)
-import Term
 
 runGame :: Term -> [Term] -> Ghci -> IO GameState
 runGame t ts ghci = runReaderT (execStateT (runExceptT $ runApp mainLoopCatch) gameState) ghci

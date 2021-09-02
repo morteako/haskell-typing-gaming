@@ -12,8 +12,8 @@ import Control.Monad.State (
   StateT (StateT),
   execStateT,
  )
+import GameState (GameState)
 import Language.Haskell.Ghcid (Ghci, exec)
-import Term (GameState)
 
 newtype App a = App {runApp :: ExceptT () (StateT GameState (ReaderT Ghci IO)) a}
   deriving newtype (Functor, Applicative, Monad, Alternative, MonadReader Ghci, MonadIO, MonadState GameState, MonadError ())
