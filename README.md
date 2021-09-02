@@ -14,9 +14,6 @@ WIP
 `nix-shell`
 
 ## todo
-- timed scoring
-- testing
-- more modules
-- logging
-- highscore
+- more hints
+- better scoring system
 - nix full build
