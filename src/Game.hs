@@ -123,7 +123,7 @@ printPrompt (ContextHint contextHint) gameState = do
     let currentTermName = gameState ^. term . name
     putStrIO $ currentTermName *:: contextHint
 
-updateDecreaseScore :: Game GuessStatus
+updateDecreaseScore :: (MonadState GameState m, MonadError () m) => m GuessStatus
 updateDecreaseScore = do
     ns <- use (to decGuessScore)
     case ns of
@@ -135,12 +135,12 @@ updateDecreaseScore = do
             resetGuessScore
             pure WasLastChance
 
-updateUpdateSkipOrNoMoreGuesses :: Game ()
+updateUpdateSkipOrNoMoreGuesses :: (MonadState GameState m, MonadError () m) => m ()
 updateUpdateSkipOrNoMoreGuesses = do
     resetTerm
     void resetGuessScore
 
-updateSpecializedGuess :: Game NumOfSpecializedGuesses
+updateSpecializedGuess :: (MonadState GameState m, MonadError () m) => m NumOfSpecializedGuesses
 updateSpecializedGuess = do
     mayGuess <- preuse (guessScore . _partialGuess)
     let f partialGuess = do
@@ -151,14 +151,14 @@ updateSpecializedGuess = do
     updateDecreaseScore
     pure betterGuess
 
-updateMostGenGuess :: Game ()
+updateMostGenGuess :: (MonadState GameState m, MonadError () m) => m ()
 updateMostGenGuess = do
     oldGuessScore <- resetGuessScore
     scores %= cons (toScore oldGuessScore)
     resetTerm
     void resetGuessScore
 
-resetTerm :: Game ()
+resetTerm :: (MonadState GameState m, MonadError () m) => m ()
 resetTerm = do
     newTerm <- preuse (allTerms . _head)
     case newTerm of
