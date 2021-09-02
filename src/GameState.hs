@@ -19,35 +19,17 @@ instance Plated Term
 
 makeLenses ''Term
 
-data GuessScore = Unguessed {_getGuessScore :: Natural} | Partially {_getGuessScore :: Natural} deriving (Show, Eq)
-
-toScore :: GuessScore -> Natural
-toScore (Unguessed s) = s + 5
-toScore (Partially s) = s
-
-findContextHint :: Type () -> GuessScore -> ContextHint
-findContextHint (TyForall () _ context _) guessScore =
-  case guessScore of
-    Unguessed 5 -> ContextHint ""
-    _ -> ContextHint $ foldMap prettyPrint context ++ " "
-findContextHint _ _ = ContextHint ""
-
-newtype ContextHint = ContextHint {getContextHint :: String}
-
-makeLenses ''GuessScore
-makePrisms ''GuessScore
-
 prettyTerm :: Term -> String
 prettyTerm Term{_name, _termType} = _name ++ " :: " ++ prettyPrint _termType
 
 prettyTermtype :: Term -> String
 prettyTermtype = foldOf (termType . to prettyPrint)
 
-_partialGuess :: Prism' GuessScore GuessScore
-_partialGuess = prism' id f
- where
-  f (Unguessed s) = Just (Partially s)
-  f _ = Nothing
+-- _partialGuess :: Prism' GuessScore GuessScore
+-- _partialGuess = prism' id f
+--  where
+--   f (Unguessed s) = Just (Partially s)
+--   f _ = Nothing
 
 data GameState = GameState
   { _scores :: [Natural]
@@ -56,8 +38,11 @@ data GameState = GameState
   , _guessScore :: GuessScore
   }
   deriving (Show, Eq)
+data GuessScore = Unguessed {_getGuessScore :: Natural} | Partially {_getGuessScore :: Natural} deriving (Show, Eq)
 
 makeLenses ''GameState
+makeLenses ''GuessScore
+makePrisms ''GuessScore
 
 currentGuessScore :: Getting Natural GameState Natural
 currentGuessScore = guessScore . to toScore
@@ -74,27 +59,23 @@ getGuessesLeft = guessScore . getGuessScore
 getTermsLeft :: Fold GameState Int
 getTermsLeft = allTerms . to length . to succ
 
-data StateChange = NewTerm | GuessedPartially deriving (Show, Eq)
-
-newState :: StateChange -> GameState -> GameState
-newState stateChange gameState@GameState{_scores, _term, _allTerms, _guessScore} =
-  case stateChange of
-    NewTerm ->
-      gameState
-        { _scores = toScore _guessScore : _scores
-        , _term = head _allTerms
-        , _allTerms = tail _allTerms
-        , _guessScore = Unguessed 5
-        }
-    GuessedPartially ->
-      gameState
-        { _scores = toScore _guessScore : _scores
-        , _guessScore = Partially $ _getGuessScore _guessScore
-        }
-
 decGuessScore :: GameState -> Maybe GameState
-decGuessScore = traverseOf (guessScore . getGuessScore) predNatural
+decGuessScore = traverseOf guessScore predNatural
  where
-  predNatural :: Natural -> Maybe Natural
-  predNatural 1 = Nothing
-  predNatural x = Just $ pred x
+  predNatural :: GuessScore -> Maybe GuessScore
+  predNatural (Partially 1) = Nothing
+  predNatural (Unguessed 1) = Just (Partially 1)
+  predNatural x = Just $ over getGuessScore pred x
+
+toScore :: GuessScore -> Natural
+toScore (Unguessed s) = s + 5
+toScore (Partially s) = s
+
+findContextHint :: Type () -> GuessScore -> ContextHint
+findContextHint (TyForall () _ context _) guessScore =
+  case guessScore of
+    Unguessed 5 -> ContextHint ""
+    _ -> ContextHint $ foldMap prettyPrint context ++ " "
+findContextHint _ _ = ContextHint ""
+
+newtype ContextHint = ContextHint {getContextHint :: String}

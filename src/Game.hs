@@ -21,6 +21,7 @@ import Control.Monad.State (
     execStateT,
  )
 import Data.Bool
+import Debug.Trace
 import Language.Haskell.Ghcid (Ghci, exec)
 
 newtype Game a = Game {getGame :: ExceptT () (StateT GameState (ReaderT Ghci IO)) a}
@@ -70,7 +71,8 @@ mainLoop = do
     inp <- parseInput <$> liftIO getLine
     case inp of
         Skip -> do
-            updateUpdateSkipOrNoMoreGuesses
+            resetTerm
+            void resetGuessScore
             mainLoop
         Quit -> guard False
         Blank -> mainLoop
@@ -81,10 +83,19 @@ mainLoop = do
     actionTypeCheckResult MostGeneral = do
         s <- use currentGuessScore
         putStrLnIO $ "Completely correct! +" ++ show s
-        updateMostGenGuess
+        oldGuessScore <- resetGuessScore
+        scores %= cons (toScore oldGuessScore)
+        resetTerm
+        void resetGuessScore
         mainLoop
     actionTypeCheckResult Specialized = do
-        betterGuess <- updateSpecializedGuess
+        mayFirstPartialllyGuess <- preuse (guessScore . _Unguessed . re _Partially)
+        let updatePartialGuess partialGuess = do
+                guessScore .= partialGuess
+                scores %= cons (toScore partialGuess)
+        let toNumOfSpecializedGuesses = maybe MultipleSpecialized (const FirstSpecialized)
+        betterGuess <- toNumOfSpecializedGuesses <$> traverse updatePartialGuess mayFirstPartialllyGuess
+        updateDecreaseScore
         s <- use currentGuessScore
         case betterGuess of
             FirstSpecialized -> putStrLnIO $ "Partially correct, but not the most general type! +" ++ show s
@@ -125,38 +136,17 @@ printPrompt (ContextHint contextHint) gameState = do
 
 updateDecreaseScore :: (MonadState GameState m, MonadError () m) => m GuessStatus
 updateDecreaseScore = do
-    ns <- use (to decGuessScore)
-    case ns of
+    ns <- traceShow "HEEEI" use (to decGuessScore)
+
+    case traceShowId ns of
         Just newStateWithDecreasedScore -> do
-            put newStateWithDecreasedScore
+            traceShow "huuust" put newStateWithDecreasedScore
             pure MoreGuessesLeft
         Nothing -> do
-            resetTerm
-            resetGuessScore
+            gs <- use guessScore
+            traceShow gs resetTerm
+            traceShow "nothing" resetGuessScore
             pure WasLastChance
-
-updateUpdateSkipOrNoMoreGuesses :: (MonadState GameState m, MonadError () m) => m ()
-updateUpdateSkipOrNoMoreGuesses = do
-    resetTerm
-    void resetGuessScore
-
-updateSpecializedGuess :: (MonadState GameState m, MonadError () m) => m NumOfSpecializedGuesses
-updateSpecializedGuess = do
-    mayGuess <- preuse (guessScore . _partialGuess)
-    let f partialGuess = do
-            guessScore .= partialGuess
-            scores %= cons (toScore partialGuess)
-    let toNumOfSpecializedGuesses = maybe MultipleSpecialized (const FirstSpecialized)
-    betterGuess <- toNumOfSpecializedGuesses <$> traverse f mayGuess
-    updateDecreaseScore
-    pure betterGuess
-
-updateMostGenGuess :: (MonadState GameState m, MonadError () m) => m ()
-updateMostGenGuess = do
-    oldGuessScore <- resetGuessScore
-    scores %= cons (toScore oldGuessScore)
-    resetTerm
-    void resetGuessScore
 
 resetTerm :: (MonadState GameState m, MonadError () m) => m ()
 resetTerm = do

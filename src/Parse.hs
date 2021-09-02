@@ -20,7 +20,6 @@ parseToTerm str = do
 notModule :: Term -> Bool
 notModule Term{_termType} = hasn't (template :: Traversal' (Type ()) (ModuleName ())) _termType
 
--- fix fully qualified aka remove
 parseBrowse :: [String] -> [Term]
 parseBrowse = filter notModule . mapMaybe parseToTerm . filter isNormalTerm . groupTerms
  where
