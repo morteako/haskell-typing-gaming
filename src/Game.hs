@@ -21,7 +21,6 @@ import Control.Monad.State (
     execStateT,
  )
 import Data.Bool
-import Debug.Trace
 import Language.Haskell.Ghcid (Ghci, exec)
 
 newtype Game a = Game {getGame :: ExceptT () (StateT GameState (ReaderT Ghci IO)) a}
@@ -135,15 +134,15 @@ printPrompt (ContextHint contextHint) gameState = do
 
 updateDecreaseScore :: (MonadState GameState m, MonadError () m) => m GuessStatus
 updateDecreaseScore = do
-    ns <- traceShow "HEEEI" use (to decGuessScore)
-    case traceShowId ns of
+    ns <- use (to decGuessScore)
+    case ns of
         Just newStateWithDecreasedScore -> do
-            traceShow "huuust" put newStateWithDecreasedScore
+            put newStateWithDecreasedScore
             pure MoreGuessesLeft
         Nothing -> do
             gs <- use guessScore
-            traceShow gs resetTerm
-            traceShow "nothing" resetGuessScore
+            resetTerm
+            resetGuessScore
             pure WasLastChance
 
 resetTerm :: (MonadState GameState m, MonadError () m) => m ()
