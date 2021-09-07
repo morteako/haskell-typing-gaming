@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 
-module Parse where
+module Parse (parseBrowse) where
 
 import Control.Lens
 import Control.Monad

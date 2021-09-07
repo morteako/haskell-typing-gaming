@@ -71,11 +71,11 @@ toScore :: GuessScore -> Natural
 toScore (Unguessed s) = s + 5
 toScore (Partially s) = s
 
-findContextHint :: Type () -> GuessScore -> ContextHint
+findContextHint :: Type () -> GuessScore -> Maybe ContextHint
 findContextHint (TyForall () _ context _) guessScore =
   case guessScore of
-    Unguessed 5 -> ContextHint ""
-    _ -> ContextHint $ foldMap prettyPrint context ++ " "
-findContextHint _ _ = ContextHint ""
+    Unguessed 5 -> Nothing
+    _ -> Just $ ContextHint $ foldMap prettyPrint context ++ " "
+findContextHint _ _ = Nothing
 
 newtype ContextHint = ContextHint {getContextHint :: String}

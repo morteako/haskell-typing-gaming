@@ -20,7 +20,6 @@ import Control.Monad.State (
     StateT (StateT),
     execStateT,
  )
-import Data.Bool
 import Language.Haskell.Ghcid (Ghci, exec)
 
 newtype Game a = Game {getGame :: ExceptT () (StateT GameState (ReaderT Ghci IO)) a}
@@ -76,7 +75,7 @@ mainLoop = do
         Quit -> guard False
         Blank -> mainLoop
         Guess g -> do
-            res <- checkGuess curTerm g
+            res <- checkGuess curTerm context g
             actionTypeCheckResult res
   where
     actionTypeCheckResult MostGeneral = do
@@ -109,11 +108,12 @@ mainLoop = do
             putStrLnIO $ prettyTerm oldTerm
         mainLoop
 
-checkGuess :: GhciSession m => Term -> String -> m TypeCheckResult
-checkGuess _ "-g" = pure MostGeneral
-checkGuess _ "-s" = pure Specialized
-checkGuess term@Term{_name} guess = do
-    let guessInput = ":t " ++ parens (_name *:: guess)
+checkGuess :: GhciSession m => Term -> Maybe ContextHint -> String -> m TypeCheckResult
+checkGuess _ _ "-g" = pure MostGeneral
+checkGuess _ _ "-s" = pure Specialized
+checkGuess term@Term{_name} contextHint guess = do
+    let contextHintStr = foldMap getContextHint contextHint
+    let guessInput = ":t " ++ parens (_name *:: (contextHintStr ++ guess))
     let isValidGuess ghciAnswer = ("(" ++ _name) `isPrefixOf` concat ghciAnswer
     mostGeneralGuess <- isValidGuess <$> execute (guessInput *:: prettyTermtype term)
     specializedGuess <- isValidGuess <$> execute guessInput
@@ -123,14 +123,15 @@ checkGuess term@Term{_name} guess = do
     toTypeCheckResult _ True = Specialized
     toTypeCheckResult _ False = Incorrect
 
-printPrompt :: InputOutput m => ContextHint -> GameState -> m ()
-printPrompt (ContextHint contextHint) gameState = do
+printPrompt :: InputOutput m => Maybe ContextHint -> GameState -> m ()
+printPrompt contextHint gameState = do
     let scorePromp = "Score: " ++ show (getTotalScore gameState)
     let guessPrompt = ". Guesses left : " ++ gameState ^. getGuessesLeft . to show
     let termsLeftPrompt = ". Terms left : " ++ gameState ^. getTermsLeft . to show
     putStrLnIO $ scorePromp ++ guessPrompt ++ termsLeftPrompt
     let currentTermName = gameState ^. term . name
-    putStrIO $ currentTermName *:: contextHint
+    let contextHintStr = foldMap getContextHint contextHint
+    putStrIO $ currentTermName *:: contextHintStr
 
 updateDecreaseScore :: (MonadState GameState m, MonadError () m) => m GuessStatus
 updateDecreaseScore = do

@@ -9,7 +9,7 @@ import GHC.IO.Handle
 import GHC.IO.Handle.FD (stdin, stdout)
 import Game (runGame)
 import Language.Haskell.Ghcid (exec, startGhci, stopGhci)
-import Parse (groupTerms, parseBrowse)
+import Parse (parseBrowse)
 import System.Random.Shuffle (shuffleM)
 
 main :: IO ()
